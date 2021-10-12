@@ -1,0 +1,9 @@
+*.rdbg
+*.dll
+
+## Clang output files (on mac)
+*.opt
+
+## Directories
+build/
+concepts/
