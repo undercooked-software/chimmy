@@ -42,7 +42,7 @@ if [ "x$CFLAGS" != "x" ]; then
   BUILD_DIR="build/${COMMAND}"
   clang++ $PREPROCESSOR $CFLAGS $WARNINGS -o \
     "${BUILD_DIR}/${PROJECT_ALIAS}_client" \
-    "osx_${PROJECT_ALIAS}.cpp" \
+    "macos_${PROJECT_ALIAS}.cpp" \
     $EXTERNAL_LIBS
 else
   echo "${0} > Please specify either 'debug' or 'release' to build."

@@ -1,9 +1,8 @@
-// https://barrgroup.com/embedded-systems/how-to/define-assert-macro
 
-// TODO (sammynilla)
-// - Static Assert
-// - Assert Messages
+// TODO: Static Assert
+// TODO: Assert Messages
 
+// LINK: https://barrgroup.com/embedded-systems/how-to/define-assert-macro
 #define AssertBreak(Expression) (*((int*)0) = 0)
 #define AssertAlways(Expression) \
   Statement( if (!(Expression)) { AssertBreak(Expression); } )
