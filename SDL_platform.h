@@ -25,8 +25,34 @@ typedef struct SDL_OFFSCREEN_BUFFER {
   //i32 pitch;
 } sdl_offscreen_buffer;
 
+typedef struct SDL_GAMEPAD {
+  SDL_GameController *pHandle;
+  SDL_Haptic *pRumbleHandle;
+} sdl_gamepad;
+
+typedef struct SDL_SUBSYSTEM_STATE {
+  b32 isInitialized;
+  b32 isRequired;
+} sdl_subsystem_state;
+
+typedef struct SDL_SUBSYSTEMS {
+  union {
+    sdl_subsystem_state systems[3];
+    struct {
+      sdl_subsystem_state video;
+      // NOTE: We may want to separate input types [controller/keyboard]
+      sdl_subsystem_state input;
+      sdl_subsystem_state haptic;
+      // NOTE: systems array should match anonymous struct
+      sdl_subsystem_state terminator;
+    };
+  };
+} sdl_subsystems;
+
 typedef struct SDL_PLATFORM {
-  struct SDL_OFFSCREEN_BUFFER backbuffer;
+  sdl_subsystems subsystems;
+
+  sdl_offscreen_buffer backbuffer;
 
   u64 performanceCounterFrequency;
   b32 isRunning;
