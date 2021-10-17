@@ -13,6 +13,9 @@
 #endif
 
 global b32 isGamepadSupported;
+global b32 isRumbleSupported;
+
+#define Bitwise_Bool(b) ((b) == 0 ? (0) : (~0))
 
 int
 main(int /* argc */, char ** /* argv */) {
@@ -28,33 +31,32 @@ main(int /* argc */, char ** /* argv */) {
     platform.subsystems.systems[systemIndex].isInitialized = false;
   }
 
-#ifdef USE_GAMEPAD
-  isGamepadSupported = platform.subsystems.haptic.isRequired = true;
-#endif
   // NOTE: Define non-required subsystems below.
   // Not all users want haptic feedback, nor do all controllers support this.
-#if 1
-  // NOTE: Disable this toggle when we're done testing.
   platform.subsystems.haptic.isRequired = false;
+
+#ifdef USE_GAMEPAD
+  isGamepadSupported = true;
+  isRumbleSupported = 
+    isGamepadSupported && platform.subsystems.haptic.isRequired;
 #endif
 
-#if 0
-  u32 controllerInitFlag = (~(u32)isGamepadSupported & SDL_INIT_GAMECONTROLLER);
-  u32 hapticInitFlag = 
-  
-  // TODO: Decide on how we want to handle variable amounts of controllers.
-  // For now, initialize controller and haptic systems regardless of controller amount.
-  u32 inputFlags = platform.subsystems.input.isRequired ? SDL_INIT_GAMECONTROLLER : 0;
-#endif
+  u32 inputFlags = 
+    Bitwise_Bool(isGamepadSupported) & SDL_INIT_GAMECONTROLLER |
+    Bitwise_Bool(isRumbleSupported) & SDL_INIT_HAPTIC;
 
-  if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC) != 0) {
+  if (SDL_InitSubSystem(inputFlags) != 0) {
     // TODO: Perform diagnostic.
     SDL_GetError();
   }
 
-  // REVIEW: There seems to be no real reason to call SDL_Init() on SDL_INIT_VIDEO.
-  // Video initialization is happening by default??
+  platform.subsystems.input.isInitialized = true;
+  platform.subsystems.haptic.isInitialized = isRumbleSupported;
 
+  // REVIEW: There seems to be no real reason to call SDL_Init() on SDL_INIT_VIDEO.
+  // Video initialization is happening by default?
+
+  // TODO: Perhaps we should move these settings to an external file somewhere.
   u32 windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN;
   SDL_Window * pWindow = 
     SDL_CreateWindow(PROJECT_FULL_NAME, 
@@ -71,39 +73,49 @@ main(int /* argc */, char ** /* argv */) {
   r32 gameUpdateHz = (monitorRefreshHz / 1.0f);
   r32 targetSecondsPerFrame = (1.0f / gameUpdateHz);
 
-  SDL_Renderer * pRenderer =
-    SDL_CreateRenderer(pWindow, -1, SDL_RENDERER_ACCELERATED);
+  // NOTE: Some systems may have VSYNC always enabled or disabled. 
+  // Trying to enable VSYNC doesn't mean we're guaranteed to have it.
+  // NOTE: Use SDL_RENDERER_SOFTWARE when building to run on virtual machines.
+  u32 renderFlags = SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED;
+  SDL_Renderer * pRenderer = SDL_CreateRenderer(pWindow, -1, renderFlags);
+  
+  if (!pRenderer) {
+    // TODO: Perform diagnostic.
+    SDL_GetError();
+  }
 
-  // Show after initialization of everything.
   SDL_ShowWindow(pWindow);
 
   platform.performanceCounterFrequency = SDL_GetPerformanceFrequency();
   platform.isRunning = true;
   // !SECTION
 
+  
+
   SDL_Event event;
   for (;;) {
     if (!platform.isRunning) break;
 
     while (SDL_PollEvent(&event)) {
-      if (event.type == SDL_QUIT)
-        platform.isRunning = false;
+      SDL_PLATFORM_FUNC(ProcessSystemEvents)(&platform, &event);
     }
 
-    SDL_Rect sRectDestination = { 5, 5, 32, 32 };
+    //SDL_Rect sRectDestination = { 5, 5, 32, 32 };
 
     // Start drawing below here.
-    SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+    /*SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
     SDL_RenderClear(pRenderer);
 
     SDL_RenderDrawRect(pRenderer, &sRectDestination);
     SDL_SetRenderDrawColor(pRenderer, 0xFF, 0xFF, 0xFF, SDL_ALPHA_OPAQUE);
-    SDL_RenderFillRect(pRenderer, &sRectDestination);
+    SDL_RenderFillRect(pRenderer, &sRectDestination);*/
     //SDL_RenderCopy(pRenderer, NULL, NULL, &sRectDestination);
-    SDL_RenderPresent(pRenderer);
+    //SDL_RenderPresent(pRenderer);
+    
+    SDL_PLATFORM_FUNC(SwapBuffers)(pRenderer, &platform.backbuffer);
   }
 
-  SDL_DestroyRenderer(pRenderer);
-  SDL_Quit();
+  // REVIEW: From previous experience it seems as if most things free themselves.
+  // Particularly all SDL related systems. This should be double checked though.
   return 0;
 }
