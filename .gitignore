@@ -1,5 +1,6 @@
 *.rdbg
 *.dll
+*.DS_Store
 
 ## Clang output files (on mac)
 *.opt
