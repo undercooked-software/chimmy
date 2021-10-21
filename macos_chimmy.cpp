@@ -18,15 +18,95 @@ global b32 isRumbleSupported;
 // TODO: Move this elsewhere
 #define Bitwise_Bool(b) ((b) == 0 ? (0) : (~0))
 
-// SECTION Map functionality.
-// TODO: Move this to a proper location
+typedef struct TEXTURE_DATA {
+  SDL_Texture *pHandle;
+  u32 width, height;
+} texture;
+
+b32 BMPToTexture(texture *pTexture, SDL_Renderer *pRenderer, const char *filename,
+                  u32 width, u32 height, b32 useColorKey = false);
+
+b32
+BMPToTexture(texture *pTexture, SDL_Renderer *pRenderer, const char *filename,
+             u32 width, u32 height, b32 useColorKey) {
+
+  SDL_Surface *pBMP = SDL_LoadBMP(filename);
+  if (!pBMP)
+    return false;
+
+  pTexture->pHandle = 0;
+
+  if (useColorKey) {
+    u32 format =
+      SDL_MapRGB(pBMP->format, color_key.r, color_key.g, color_key.b);
+    SDL_SetColorKey(pBMP, SDL_TRUE, format);
+  }
+
+  pTexture->pHandle = SDL_CreateTextureFromSurface(pRenderer, pBMP);
+  SDL_FreeSurface(pBMP);
+
+  if (!pTexture->pHandle)
+    return false;
+
+  pTexture->width = width;
+  pTexture->height = height;
+  return true;
+}
+
+typedef struct ENTITY {
+  texture pTexture;
+  u32 anim;
+
+  SDL_Rect pCropRect; // { texture-x, texture-y, crop-width, crop-height }
+  SDL_Rect pPosition; // { pos-x, pos-y, width, height}
+} entity;
+
+#define ENTITY_NO_ANIM 255
+
+void EntityMove(entity *pEntity, i32 x, i32 y);
+SDL_Rect * EntityCalculateCropRect(entity *pEntity);
+void EntityRemove(entity *pEntity);
+
+void
+EntityMove(entity *pEntity, i32 x, i32 y) {
+  pEntity->pPosition.x = x;
+  pEntity->pPosition.y = y;
+}
+
+SDL_Rect *
+EntityCalculateCropRect(entity *pEntity) {
+  // NOTE: 0 or NULL is passed to use the entire texture
+  if (pEntity->anim == ENTITY_NO_ANIM)
+    return 0;
+
+  i32 frameWidth = pEntity->pPosition.w;
+  i32 frameHeight = pEntity->pPosition.h;
+
+  // integer division to floor the value
+  i32 texture_modulus = pEntity->pTexture.width / frameWidth;
+
+  // REVIEW: Maybe add data santizing checks if anim is OoB of texture?
+
+  pEntity->pCropRect.w = frameWidth;
+  pEntity->pCropRect.h = frameHeight;
+  pEntity->pCropRect.x = (pEntity->anim % texture_modulus) * frameWidth;
+  pEntity->pCropRect.y = (pEntity->anim / texture_modulus) * frameHeight;
+
+  return &pEntity->pCropRect;
+}
+
+void
+EntityRemove(entity *pEntity) {
+  // FIXME For now this will just clear out the texture
+  SDL_DestroyTexture(pEntity->pTexture.pHandle);
+}
+
 typedef struct MAP_DATA {
   COLOR background;
-  void (*pHandler)(struct MAP_DATA *pMap);
+  //void (*pHandler)(struct MAP_DATA *pMap);
   
   struct MAP_DATA *pPrev, *pNext;
 } map_data;
-// !SECTION
 
 int
 main(int /* argc */, char ** /* argv */) {
@@ -103,7 +183,7 @@ main(int /* argc */, char ** /* argv */) {
 
   // SECTION: Temp Data
   // NOTE makeshift linked-list 
-  map_data * head;
+  map_data *head;
   map_data start, test1, test2, finish;
   start.background = DEEP_GREEN;
   start.pNext = &test1;
@@ -120,34 +200,16 @@ main(int /* argc */, char ** /* argv */) {
 
   head = &start;
 
-  // NOTE: Texture loading, color keying
-  // TODO: Move these textures somewhere else?
-  u32 format;
-  SDL_Surface *pPaletteBitmap = SDL_LoadBMP("data/image/palette.bmp");
-  format = SDL_MapRGB(pPaletteBitmap->format, 
-                      color_key.r, color_key.g, color_key.b);
-  SDL_SetColorKey(pPaletteBitmap, SDL_TRUE, format);
-  SDL_Texture *pPaletteTexture = SDL_CreateTextureFromSurface(pRenderer, pPaletteBitmap);
-  SDL_FreeSurface(pPaletteBitmap);
+  // NOTE: Test Entities
+  entity background = {};
+  BMPToTexture(&background.pTexture, pRenderer, "data/image/palette.bmp", 8, 8);
+  background.pPosition.w = background.pPosition.h = PIXEL_SIZE;
+  background.anim = start.background;
 
-  SDL_Surface *pChimmyBitmap = SDL_LoadBMP("data/image/chimmy.bmp");
-  format = SDL_MapRGB(pChimmyBitmap->format, 
-                      color_key.r, color_key.g, color_key.b);
-  SDL_SetColorKey(pChimmyBitmap, SDL_TRUE, format);
-  SDL_Texture *pChimmyTexture = SDL_CreateTextureFromSurface(pRenderer, pChimmyBitmap);
-  SDL_FreeSurface(pChimmyBitmap);
-
-  SDL_Surface *pTreeBitmap = SDL_LoadBMP("data/image/tree.bmp");
-  format = SDL_MapRGB(pTreeBitmap->format, 
-                      color_key.r, color_key.g, color_key.b);
-  SDL_SetColorKey(pTreeBitmap, SDL_TRUE, format);
-  SDL_Texture *pTreeTexture = SDL_CreateTextureFromSurface(pRenderer, pTreeBitmap);
-  SDL_FreeSurface(pTreeBitmap);
-
-  // NOTE: Test Data
-  SDL_Rect chimmyPos = { 34, 65, 20, 20 };
-  SDL_Rect paletteColor = { head->background % 8, head->background / 8, 
-                            PIXEL_SIZE, PIXEL_SIZE };
+  entity chimmy = {};
+  BMPToTexture(&chimmy.pTexture, pRenderer, "data/image/chimmy.bmp", 64, 64, true);
+  chimmy.pPosition.w = chimmy.pPosition.h = 20;
+  EntityMove(&chimmy, 34, 65);
   // !SECTION
 
   SDL_Event event;
@@ -156,33 +218,37 @@ main(int /* argc */, char ** /* argv */) {
 
     while (SDL_PollEvent(&event)) {
       SDL_PLATFORM_FUNC(ProcessSystemEvents)(&platform, &event);
+      // TODO: Actually utilize the functions in SDL_platform.cpp
       switch (event.type) {
         case SDL_KEYDOWN: {
           switch (event.key.keysym.sym) {
             case SDLK_LEFT: {
               if (head->pPrev != 0)
                 head = head->pPrev;
-                paletteColor.x = head->background % 8; 
-                paletteColor.y = head->background / 8;
+                background.anim = head->background;
             }break;
             case SDLK_RIGHT: {
               if (head->pNext != 0)
                 head = head->pNext;
-                paletteColor.x = head->background % 8; 
-                paletteColor.y = head->background / 8;
+                background.anim = head->background;
+            }break;
+            case SDLK_UP: {
+              chimmy.anim++;
+            }break;
+            case SDLK_DOWN: {
+              chimmy.anim--;
             }break;
           }
         }break;
       }
     }
 
-    SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
     SDL_RenderClear(pRenderer);
 
-    if (head->background)
-      SDL_RenderCopy(pRenderer, pPaletteTexture, &paletteColor, 0);
-      
-    SDL_RenderCopy(pRenderer, pChimmyTexture, 0, &chimmyPos);
+    SDL_RenderCopy(pRenderer, background.pTexture.pHandle,
+                   EntityCalculateCropRect(&background), 0);
+    SDL_RenderCopy(pRenderer, chimmy.pTexture.pHandle,
+                   EntityCalculateCropRect(&chimmy), &chimmy.pPosition);
 
     SDL_PLATFORM_FUNC(SwapBuffers)(pRenderer, &platform.backbuffer);
 
@@ -190,9 +256,8 @@ main(int /* argc */, char ** /* argv */) {
     SDL_Delay(16);
   }
   
-  SDL_DestroyTexture(pPaletteTexture);
-  SDL_DestroyTexture(pChimmyTexture);
-  SDL_DestroyTexture(pTreeTexture);
+  EntityRemove(&background);
+  EntityRemove(&chimmy);
 
   // REVIEW: Windows tends to free the majority of things at the end of runtime.
   // This may not be the same on MacOS and should be reviewed.
