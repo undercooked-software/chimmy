@@ -15,7 +15,7 @@ NO_OUTPUT="/dev/null"
 } &> $NO_OUTPUT
 
 PROJECT_ALIAS="chimmy"
-PREPROCESSOR="-DSHIP_BUILD=0"
+PREPROCESSOR="-DSHIP_BUILD=0 -DUSE_GAMEPAD"
 WARNINGS="-Wall -Wextra"
 
 DEBUG_COMPILER_FLAGS="-g -O0 -disable-llvm-optzns -fno-elide-constructors"
