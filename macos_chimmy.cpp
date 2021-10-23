@@ -1,105 +1,17 @@
 
 #include "chimmy_internals.h"
 #include "SDL_platform.h"
+#include "entity.h"
 
 #define SCREEN_WIDTH 200
 #define SCREEN_HEIGHT 150
 
 #include "SDL_platform.cpp"
-
-// TODO: Move this to the build script preprocessors.
-#ifndef USE_GAMEPAD
-  #define USE_GAMEPAD
-#endif
+#include "entity.cpp"
+#include "texture.cpp"
 
 global b32 isGamepadSupported;
 global b32 isRumbleSupported;
-
-// TODO: Move this elsewhere
-#define Bitwise_Bool(b) ((b) == 0 ? (0) : (~0))
-
-typedef struct TEXTURE_DATA {
-  SDL_Texture *pHandle;
-  u32 width, height;
-} texture;
-
-b32 BMPToTexture(texture *pTexture, SDL_Renderer *pRenderer, const char *filename,
-                  u32 width, u32 height, b32 useColorKey = false);
-
-b32
-BMPToTexture(texture *pTexture, SDL_Renderer *pRenderer, const char *filename,
-             u32 width, u32 height, b32 useColorKey) {
-
-  SDL_Surface *pBMP = SDL_LoadBMP(filename);
-  if (!pBMP)
-    return false;
-
-  pTexture->pHandle = 0;
-
-  if (useColorKey) {
-    u32 format =
-      SDL_MapRGB(pBMP->format, color_key.r, color_key.g, color_key.b);
-    SDL_SetColorKey(pBMP, SDL_TRUE, format);
-  }
-
-  pTexture->pHandle = SDL_CreateTextureFromSurface(pRenderer, pBMP);
-  SDL_FreeSurface(pBMP);
-
-  if (!pTexture->pHandle)
-    return false;
-
-  pTexture->width = width;
-  pTexture->height = height;
-  return true;
-}
-
-typedef struct ENTITY {
-  texture pTexture;
-  u32 anim;
-
-  SDL_Rect pCropRect; // { texture-x, texture-y, crop-width, crop-height }
-  SDL_Rect pPosition; // { pos-x, pos-y, width, height}
-} entity;
-
-#define ENTITY_NO_ANIM 255
-
-void EntityMove(entity *pEntity, i32 x, i32 y);
-SDL_Rect * EntityCalculateCropRect(entity *pEntity);
-void EntityRemove(entity *pEntity);
-
-void
-EntityMove(entity *pEntity, i32 x, i32 y) {
-  pEntity->pPosition.x = x;
-  pEntity->pPosition.y = y;
-}
-
-SDL_Rect *
-EntityCalculateCropRect(entity *pEntity) {
-  // NOTE: 0 or NULL is passed to use the entire texture
-  if (pEntity->anim == ENTITY_NO_ANIM)
-    return 0;
-
-  i32 frameWidth = pEntity->pPosition.w;
-  i32 frameHeight = pEntity->pPosition.h;
-
-  // integer division to floor the value
-  i32 texture_modulus = pEntity->pTexture.width / frameWidth;
-
-  // REVIEW: Maybe add data santizing checks if anim is OoB of texture?
-
-  pEntity->pCropRect.w = frameWidth;
-  pEntity->pCropRect.h = frameHeight;
-  pEntity->pCropRect.x = (pEntity->anim % texture_modulus) * frameWidth;
-  pEntity->pCropRect.y = (pEntity->anim / texture_modulus) * frameHeight;
-
-  return &pEntity->pCropRect;
-}
-
-void
-EntityRemove(entity *pEntity) {
-  // FIXME For now this will just clear out the texture
-  SDL_DestroyTexture(pEntity->pTexture.pHandle);
-}
 
 typedef struct MAP_DATA {
   COLOR background;
@@ -133,8 +45,8 @@ main(int /* argc */, char ** /* argv */) {
 #endif
 
   u32 inputFlags = 
-    (Bitwise_Bool(isGamepadSupported) & SDL_INIT_GAMECONTROLLER) |
-    (Bitwise_Bool(isRumbleSupported) & SDL_INIT_HAPTIC);
+    (BitwiseBool(isGamepadSupported) & SDL_INIT_GAMECONTROLLER) |
+    (BitwiseBool(isRumbleSupported) & SDL_INIT_HAPTIC);
 
   if (SDL_InitSubSystem(inputFlags) != 0) {
     // TODO: Perform diagnostic.
@@ -182,7 +94,7 @@ main(int /* argc */, char ** /* argv */) {
   // !SECTION
 
   // SECTION: Temp Data
-  // NOTE makeshift linked-list 
+  // NOTE makeshift linked-list for map traversal
   map_data *head;
   map_data start, test1, test2, finish;
   start.background = DEEP_GREEN;
@@ -200,14 +112,41 @@ main(int /* argc */, char ** /* argv */) {
 
   head = &start;
 
-  // NOTE: Test Entities
+  // NOTE: Test Entities (currently not attached to maps)
   entity background = {};
-  BMPToTexture(&background.pTexture, pRenderer, "data/image/palette.bmp", 8, 8);
+  background.pTexture = BMPToTexture(pRenderer, "data/image/palette.bmp", false);
   background.pPosition.w = background.pPosition.h = PIXEL_SIZE;
   background.anim = start.background;
 
+  const i32 treeCount = 6;
+  entity trees[treeCount];
+  i32 points[treeCount*2] = {
+    12, 7,    84, 7,    151, 7,
+    12, 105,  84, 105,  151, 105
+  };
+  entity *pHeadTree = trees;
+  entity *pTailTree = trees + treeCount;
+  pHeadTree->pTexture = BMPToTexture(pRenderer, "data/image/tree.bmp", true);
+  pHeadTree->pPosition.w = 32;
+  pHeadTree->pPosition.h = 40;
+  pHeadTree->anim = ENTITY_NO_ANIM;
+  EntityMove(pHeadTree, points[0], points[1]);
+  for (i32 i = 0; i < treeCount - 1; ++i) {
+    trees[i+1].pTexture = trees[i].pTexture;
+    trees[i+1].pPosition.w = trees[i].pPosition.w;
+    trees[i+1].pPosition.h = trees[i].pPosition.h;
+    trees[i+1].anim = ENTITY_NO_ANIM;
+    EntityMove(&trees[i+1], points[(i+1)*2], points[((i+1)*2)+1]);
+  }
+  // for (++pHeadTree; pHeadTree < pTailTree; ++pHeadTree) {
+  //   pHeadTree->pTexture = (pHeadTree-1)->pTexture;
+  //   pHeadTree->pPosition.w = (pHeadTree-1)->pPosition.w;
+  //   pHeadTree->pPosition.h = (pHeadTree-1)->pPosition.h;
+  //   pHeadTree->anim = ENTITY_NO_ANIM;
+  // }
+
   entity chimmy = {};
-  BMPToTexture(&chimmy.pTexture, pRenderer, "data/image/chimmy.bmp", 64, 64, true);
+  chimmy.pTexture = BMPToTexture(pRenderer, "data/image/chimmy.bmp", true);
   chimmy.pPosition.w = chimmy.pPosition.h = 20;
   EntityMove(&chimmy, 34, 65);
   // !SECTION
@@ -238,18 +177,27 @@ main(int /* argc */, char ** /* argv */) {
             case SDLK_DOWN: {
               chimmy.anim--;
             }break;
+            case SDLK_1: {
+              SDL_PLATFORM_FUNC(SaveScreenshot)(pRenderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+            }break;
           }
         }break;
       }
     }
 
     SDL_RenderClear(pRenderer);
-
-    SDL_RenderCopy(pRenderer, background.pTexture.pHandle,
+    {
+      SDL_RenderCopy(pRenderer, background.pTexture,
                    EntityCalculateCropRect(&background), 0);
-    SDL_RenderCopy(pRenderer, chimmy.pTexture.pHandle,
-                   EntityCalculateCropRect(&chimmy), &chimmy.pPosition);
 
+      for (pHeadTree = trees; pHeadTree < pTailTree; ++pHeadTree) {
+        SDL_RenderCopy(pRenderer, pHeadTree->pTexture,
+                       EntityCalculateCropRect(pHeadTree), &pHeadTree->pPosition);
+      }
+
+      SDL_RenderCopy(pRenderer, chimmy.pTexture,
+                   EntityCalculateCropRect(&chimmy), &chimmy.pPosition);
+    }
     SDL_PLATFORM_FUNC(SwapBuffers)(pRenderer, &platform.backbuffer);
 
     // FIXME: Add an actual way to limit framerate outside of vsync

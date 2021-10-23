@@ -28,7 +28,7 @@ typedef double  r64;
 #define Gigabytes(Value) (Megabytes(Value) << 10)
 #define Terabytes(Value) (Gigabytes(Value) << 10)
 
-#define Bitwise_Bool(b) ((b) == 0 ? (0) : (~0))
+#define BitwiseBool(b) ((b) == 0 ? (0) : (~0))
 // !SECTION
 
 // SECTION Utility
@@ -45,10 +45,10 @@ typedef double  r64;
 // !SECTION
 
 // SECTION Token pasting for use with combining preprocessor string literals
-#define stringify_(s) #s
-#define stringify(s) stringify_(s)
-#define glue_(a,b) a##b
-#define glue(a,b) glue_(a,b)
+#define Stringify_(s) #s
+#define Stringify(s) Stringify_(s)
+#define Join_(a,b) a##b
+#define Join(a,b) Join_(a,b)
 // !SECTION
 
 // SECTION Switches
