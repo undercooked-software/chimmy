@@ -1,12 +1,14 @@
 
 void
-EntityMove(entity *pEntity, i32 x, i32 y) {
+EntityMove(Entity *pEntity, i32 x, i32 y)
+{
   pEntity->pPosition.x = x;
   pEntity->pPosition.y = y;
 }
 
 SDL_Rect *
-EntityCalculateCropRect(entity *pEntity) {
+EntityCalculateCropRect(Entity *pEntity)
+{
   // NOTE: 0 or NULL is passed to use the entire texture
   if (pEntity->anim == ENTITY_NO_ANIM)
     return 0;
@@ -30,7 +32,8 @@ EntityCalculateCropRect(entity *pEntity) {
 }
 
 void
-EntityRemove(entity *pEntity) {
+EntityRemove(Entity *pEntity)
+{
   // FIXME For now this will just clear out the texture
   SDL_DestroyTexture(pEntity->pTexture);
 }

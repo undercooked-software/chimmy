@@ -1,30 +1,31 @@
 
 #include "chimmy_internals.h"
-#include "SDL_platform.h"
+#include "MSYS_platform.h"
 #include "entity.h"
 
 #define SCREEN_WIDTH 200
 #define SCREEN_HEIGHT 150
 
-#include "SDL_platform.cpp"
+#include "MSYS_platform.cpp"
 #include "entity.cpp"
 #include "texture.cpp"
 
 global b32 isGamepadSupported;
 global b32 isRumbleSupported;
 
-typedef struct MAP_DATA {
+typedef struct _Map_DATA
+{
   COLOR background;
   //void (*pHandler)(struct MAP_DATA *pMap);
   
-  struct MAP_DATA *pPrev, *pNext;
-} map_data;
+  struct _Map_DATA *pPrev, *pNext;
+} Map_DATA;
 
 int
-main(int /* argc */, char ** /* argv */) {
-
-  // SECTION: SDL Platform API Initialization
-  sdl_platform platform = {};
+main(int /* argc */, char ** /* argv */)
+{
+  // SECTION: MSYS Platform API Initialization
+  MSYS_Platform platform = {};
   for (u32 systemIndex = 0; 
        systemIndex < ArrayCount(platform.subsystems.systems);
        ++systemIndex)
@@ -72,7 +73,7 @@ main(int /* argc */, char ** /* argv */) {
     SDL_GetError();
   }
 
-  i32 monitorRefreshHz = SDL_PLATFORM_FUNC(GetRefreshRate)(pWindow);
+  i32 monitorRefreshHz = MSYS_PLATFORM_FUNC(GetRefreshRate)(pWindow);
   r32 gameUpdateHz = (monitorRefreshHz / 1.0f);
   r32 targetSecondsPerFrame = (1.0f / gameUpdateHz);
 
@@ -95,8 +96,8 @@ main(int /* argc */, char ** /* argv */) {
 
   // SECTION: Temp Data
   // NOTE makeshift linked-list for map traversal
-  map_data *head;
-  map_data start, test1, test2, finish;
+  Map_DATA *head;
+  Map_DATA start, test1, test2, finish;
   start.background = DEEP_GREEN;
   start.pNext = &test1;
   start.pPrev = &finish;
@@ -113,19 +114,19 @@ main(int /* argc */, char ** /* argv */) {
   head = &start;
 
   // NOTE: Test Entities (currently not attached to maps)
-  entity background = {};
+  Entity background = {};
   background.pTexture = BMPToTexture(pRenderer, "data/image/palette.bmp", false);
   background.pPosition.w = background.pPosition.h = PIXEL_SIZE;
   background.anim = start.background;
 
   const i32 treeCount = 6;
-  entity trees[treeCount];
+  Entity trees[treeCount];
   i32 points[treeCount*2] = {
     12, 7,    84, 7,    151, 7,
     12, 105,  84, 105,  151, 105
   };
-  entity *pHeadTree = trees;
-  entity *pTailTree = trees + treeCount;
+  Entity *pHeadTree = trees;
+  Entity *pTailTree = trees + treeCount;
   pHeadTree->pTexture = BMPToTexture(pRenderer, "data/image/tree.bmp", true);
   pHeadTree->pPosition.w = 32;
   pHeadTree->pPosition.h = 40;
@@ -138,14 +139,8 @@ main(int /* argc */, char ** /* argv */) {
     trees[i+1].anim = ENTITY_NO_ANIM;
     EntityMove(&trees[i+1], points[(i+1)*2], points[((i+1)*2)+1]);
   }
-  // for (++pHeadTree; pHeadTree < pTailTree; ++pHeadTree) {
-  //   pHeadTree->pTexture = (pHeadTree-1)->pTexture;
-  //   pHeadTree->pPosition.w = (pHeadTree-1)->pPosition.w;
-  //   pHeadTree->pPosition.h = (pHeadTree-1)->pPosition.h;
-  //   pHeadTree->anim = ENTITY_NO_ANIM;
-  // }
 
-  entity chimmy = {};
+  Entity chimmy = {};
   chimmy.pTexture = BMPToTexture(pRenderer, "data/image/chimmy.bmp", true);
   chimmy.pPosition.w = chimmy.pPosition.h = 20;
   EntityMove(&chimmy, 34, 65);
@@ -156,7 +151,7 @@ main(int /* argc */, char ** /* argv */) {
     if (!platform.isRunning) break;
 
     while (SDL_PollEvent(&event)) {
-      SDL_PLATFORM_FUNC(ProcessSystemEvents)(&platform, &event);
+      MSYS_PLATFORM_FUNC(ProcessSystemEvents)(&platform, &event);
       // TODO: Actually utilize the functions in SDL_platform.cpp
       switch (event.type) {
         case SDL_KEYDOWN: {
@@ -178,7 +173,7 @@ main(int /* argc */, char ** /* argv */) {
               chimmy.anim--;
             }break;
             case SDLK_1: {
-              SDL_PLATFORM_FUNC(SaveScreenshot)(pRenderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+              MSYS_PLATFORM_FUNC(SaveScreenshot)(pRenderer, SCREEN_WIDTH, SCREEN_HEIGHT);
             }break;
           }
         }break;
@@ -198,7 +193,7 @@ main(int /* argc */, char ** /* argv */) {
       SDL_RenderCopy(pRenderer, chimmy.pTexture,
                    EntityCalculateCropRect(&chimmy), &chimmy.pPosition);
     }
-    SDL_PLATFORM_FUNC(SwapBuffers)(pRenderer, &platform.backbuffer);
+    MSYS_PLATFORM_FUNC(SwapBuffers)(pRenderer, &platform.backbuffer);
 
     // FIXME: Add an actual way to limit framerate outside of vsync
     SDL_Delay(16);
@@ -209,5 +204,4 @@ main(int /* argc */, char ** /* argv */) {
 
   // REVIEW: Windows tends to free the majority of things at the end of runtime.
   // This may not be the same on MacOS and should be reviewed.
-  return 0;
 }

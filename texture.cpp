@@ -1,7 +1,7 @@
 
 internal SDL_Texture * 
-BMPToTexture(SDL_Renderer *pRenderer, 
-             const char *filename, b32 useColorKey) {
+BMPToTexture(SDL_Renderer *pRenderer, const char *filename, b32 useColorKey)
+{
 
   SDL_Texture *pTexture = 0;
   
