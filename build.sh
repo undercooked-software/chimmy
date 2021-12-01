@@ -15,11 +15,11 @@ NO_OUTPUT="/dev/null"
 } &> $NO_OUTPUT
 
 PROJECT_ALIAS="chimmy"
-PREPROCESSOR="-DSHIP_BUILD=0 -DUSE_GAMEPAD"
+PREPROCESSOR="-DSHIP_MODE=0 -DUSE_GAMEPAD"
 WARNINGS="-Wall -Wextra"
 
 DEBUG_COMPILER_FLAGS="-g -O0 -disable-llvm-optzns -fno-elide-constructors"
-RELEASE_COMPILER_FLAGS="-Ofast -foptimization-record-file=$PROJECT_ALIAS.opt"
+RELEASE_COMPILER_FLAGS="-O3 -foptimization-record-file=$PROJECT_ALIAS.opt"
 
 EXTERNAL_LIBS="-lSDL2"
 
