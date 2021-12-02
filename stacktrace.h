@@ -9,7 +9,7 @@
 #define AssertAlways(Expression) \
   Statement( if (!(Expression)) { AssertBreak(Expression); } )
 
-#if !SHIP_BUILD
+#if !SHIP_MODE
   #define Assert(Expression) AssertAlways(Expression)
 #else
   #define Assert(Expression)

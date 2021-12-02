@@ -45,20 +45,23 @@ main(int /* argc */, char ** /* argv */)
     isGamepadSupported && platform.subsystems.haptic.isRequired;
 #endif
 
-  u32 inputFlags = 
+  // NOTE: SDL_INIT_GAMECONTROLLER automatically initializes SDL_INIT_JOYSTICK.
+  u32 inputFlags =
     (BitwiseBool(isGamepadSupported) & SDL_INIT_GAMECONTROLLER) |
     (BitwiseBool(isRumbleSupported) & SDL_INIT_HAPTIC);
 
   if (SDL_InitSubSystem(inputFlags) != 0) {
     // TODO: Perform diagnostic.
-    SDL_GetError();
+    // SDL_GetError();
   }
 
   platform.subsystems.input.isInitialized = true;
   platform.subsystems.haptic.isInitialized = isRumbleSupported;
 
-  // REVIEW: There seems to be no real reason to call SDL_Init() on SDL_INIT_VIDEO.
-  // Video initialization is happening by default?
+  // LINK: https://wiki.libsdl.org/SDL_Init
+  // REVIEW: There seems to be no real reason to call SDL_Init()?
+  //         The following subsystems seem to initialize regardless:
+  //           - SDL_INIT_TIMER, SDL_INIT_EVENTS, SDL_INIT_VIDEO
 
   // TODO: Perhaps we should move these settings to an external file somewhere.
   u32 windowFlags = SDL_WINDOW_HIDDEN;
@@ -70,7 +73,7 @@ main(int /* argc */, char ** /* argv */)
 
   if (!pWindow) {
     // TODO: Perform diagnostic.
-    SDL_GetError();
+    // SDL_GetError();
   }
 
   i32 monitorRefreshHz = MSYS_PLATFORM_FUNC(GetRefreshRate)(pWindow);
@@ -85,7 +88,7 @@ main(int /* argc */, char ** /* argv */)
   
   if (!pRenderer) {
     // TODO: Perform diagnostic.
-    SDL_GetError();
+    // SDL_GetError();
   }
 
   SDL_ShowWindow(pWindow);
