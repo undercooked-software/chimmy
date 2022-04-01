@@ -2,9 +2,12 @@
 *.dll
 *.DS_Store
 
-## Clang output files (on mac)
+## Clang output files (mac)
 *.opt
 
+## MSVC output files (windows)
+*.obj
+*.pdb
+*.exe
+
 ## Directories
-build/
-concepts/
