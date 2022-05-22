@@ -1,0 +1,2 @@
+-I
+C:\Program Files\raylib-4.0.0\include
