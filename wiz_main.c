@@ -78,7 +78,7 @@ bmp_trans_load(const char* filename, u32 color) {
   if (!optimized_bmp) return NULL;
 
   {
-    struct rgb unpacked = rgb_unpack(MAGENTA);
+    struct rgb unpacked = rgb_unpack(color);
     u32 key = SDL_MapRGB(optimized_bmp->format,
                          unpacked.r, unpacked.g, unpacked.b);
     SDL_SetColorKey(optimized_bmp, SDL_SRCCOLORKEY, key);
