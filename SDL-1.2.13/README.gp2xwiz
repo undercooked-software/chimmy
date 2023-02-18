@@ -1,0 +1,115 @@
+[How to build]
+make clean
+./configure --prefix=(installdir) --host=(arm-linux) --build=(arch) --enable-shared --enable-pthreads --enable-pthread-sem --enable-threads --disable-video-fbcon --disable-video-directfb --disable-video-x11 --disable-arts --disable-esd --disable-pulseaudio --enable-video --enable-video-gp2xwiz (--enable-video-opengl --enable-gp2xwiz-rotbuffer --enable-gp2xwiz-mplayer)
+make
+make install 
+
+[Toolchain settings for developer]
+If you want to develop your own application with OpenWIZ, Devkit toolchain, you need to install this library on your toolchain.
+* Warning : But don't install this library on official GPH toolchain! 
+  If you're using GPH toolchain, then you have to copy&paste below code(#define) manually.
+
+#define WIZ_MMUHACKOFF	0x00040000
+#define WIZ_RAMTWEAKOFF	0x00080000
+#define WIZ_240X320	0x00100000
+#define WIZ_UPPERSURFACE 0x00200000
+#define WIZ_TEARING	0x00400000
+#define WIZ_VSYNCOFF	0x00800000
+  
+* Additional configure flags for GP2X Wiz
+--enable-video-opengl : Enables OpenGL ES development (You have to copy gl.h and egl.h on your toolchain's include/GLES directory first.)
+--enable-gp2xwiz-mplayer : Enables MPlayer specific options
+--enable-gp2xwiz-rotbuffer : Reduces screen tearing on 320x240 => 240x320 rotation, but it's slower than default. (Disabled by default)
+
+
+[Additional SDL_SetVideoMode() flags for developers]
+1. SDL_DOUBLEBUF : Enables Wait for VSYNC
+   If you wanna use this feature, add SDL_DOUBLEBUF flag on SDL_SetVideoMode() and use SDL_Flip() to refresh screen.
+   (SDL_UpdateRects() doesn't wait for VSYNC)
+
+example)
+SDL_SetVideoMode(320,240,16,SDL_SWSURFACE|SDL_DOUBLEBUF);
+SDL_Flip(screen);
+
+2. SDL_DOUBLEBUF | WIZ_VSYNCOFF : Turn on pollux hardware double buffering, but doesn't wait for VSYNC.
+   (this feature is needed by some emulators)
+
+3. WIZ_RAMTWEAKOFF : Turn off ram timing tweak.
+4. WIZ_MMUHACKOFF : Turn off mmuhack. Don't use this flag with WIZ_UPPERSURFACE because WIZ_UPPERSURFACE requires mmuhack.
+   (mmuhack and ram timing features are enabled by default for more performance)
+
+5. WIZ_240X320 : Enables 240x320 screen mode
+   If you wanna use this feature, set screen width to 240 or smaller,
+   set screen height to 320 or smaller, and add WIZ_240X320 flag on SDL_SetVideoMode().
+
+example)
+SDL_SetVideoMode(240,320,16,SDL_SWSURFACE|WIZ_240X320);
+
+   --------------------------------    
+   |(0,0)                         |   
+   |                              |
+   |                              |
+   |                              |
+   |                     (319,239)|
+   --------------------------------
+        (320x240 rotation mode)
+
+   --------------------------------
+   |                         (0,0)|   
+   |                              |
+   |                              |
+   |                              |
+   |(239,319)                     |
+   --------------------------------
+           (240x320 mode)
+
+6. WIZ_TEARING : Set screen mode to 320x240 "diagnoal tearing" mode. (Same as GP2X Wiz's built in SDL library)
+example)
+SDL_SetVideoMode(320,240,16,SDL_SWSURFACE|WIZ_TEARING);
+
+7. WIZ_UPPERSURFACE : Use upper 16MiB(3D memory area) to alloc 2D SDL_Surface.
+   (It's for 2D graphics mode only. With SDL_OPENGL flag, it's automatically disabled.)
+   If you wanna use this feature, add WIZ_UPPERSURFACE flag on SDL_SetVideoMode(),
+   and add WIZ_UPPERSURFACE flag on each SDL_CreateRGBSurface() calls.
+   Or you can use SDL_DisplayFormat() function. It allocates converted surface on upper memory when WIZ_UPPERSURFACE enabled. 
+   Note that this feature requires MMUHACK/wARM module. If you don't have .ko file on your SD's same directory with libSDL-1.2.so.0 and your .gpe file, this feature is automatically disabled.
+example)   
+SDL_SetVideoMode(320,240,16,SDL_SWSURFACE|WIZ_UPPERSURFACE);
+SDL_CreateRGBSurface(WIZ_UPPERSURFACE,...);
+
+8. SDL_OPENGL : Enables OpenGL ES development for GP2X Wiz.
+   If you wanna use this feature, set SDL_OPENGL flag on SDL_SetVideoMode(),
+   And dynamic link GP2X Wiz's libopengles_lite.so and libwizGLES.so/libglport.so at compiling your apps.
+   You can use this flag with WIZ_240X320/WIZ_TEARING flags for set screen direction, but can't use this flag with WIZ_UPPERSURFACE/SDL_DOUBLEBUF.
+   (SDL_DOUBLEBUF and WIZ_UPPERSURFACE flags are automatically disabled when SDL_OPENGL flag enabled.)
+
+usage for older(~firmware 1.1.0) libraries)
+SDL_SetVideoMode(240,320,16,SDL_OPENGL|WIZ_240X320); - 240x320 mode to prevent diagnoal tearing.
+SDL_SetVideoMode(320,240,16,SDL_OPENGL|WIZ_TEARING); - Default 320x240 mode. It's have diagnoal tearing.
+
+arm-openwiz-linux-gnu-g++ (your options) -lSDL -lwizGLES -lopengles_lite
+
+usage for newer(firmware 1.2.0) libraries)
+SDL_SetVideoMode(320,240,16,SDL_OPENGL); - Newer libraries are eliminated diagnoal tearing and doesn't support 240x320 mode.
+
+arm-openwiz-linux-gnu-g++ (your options) -lSDL -lglport -lopengles_lite
+
+Note : Don't use SDL_OPENGLBLIT flag! It's veryvery slow.
+
+
+[Modifications for SDL_GL_SetAttribute() function]
+SDL_GL_RED_SIZE, SDL_GL_GREEN_SIZE, SDL_GL_BLUE_SIZE, SDL_GL_ALPHA_SIZE, SDL_GL_BUFFER_SIZE, SDL_GL_DEPTH_SIZE, SDL_GL_SWAP_CONTROL flags are enabled for OpenGL ES Lite 1.1.
+Other flags are disabled because they are not supported on OpenGL ES 1.1 or GP2X Wiz's OpenGL ES Lite.
+Note : SDL_GL_ALPHA_SIZE is always be zero, and SDL_GL_SWAP_CONTROL flag has no effects currently.
+
+
+[YUV Functions added]
+Now you can use SDL_CreateYUVOverlay, SDL_DisplayYUVOverlay, SDL_FreeYUVOverlay to use Wiz's HW YUV layer. (planar YUV 4:2:0 only)
+But you have to call SDL_FBVideoInit(this function is added by GPH) before SDL_DisplayYUVOverlay.
+You can rotate your YUV image with SDL_WizRotateYUV function if you're on 240x320 portrait mode.
+Read SDL_video.c and SDL_gp2xwizyuv.c for more informations.
+
+
+Special thanks to : Notaz, Orkie, Pickle, hcf, Exophase, KungPhoo, Franxis, sbock, NK, SMgal and everybody! 
+
+2010.3.25 ikari

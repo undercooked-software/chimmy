@@ -1,3 +1,4 @@
+.envrc
 *.rdbg
 *.dll
 *.DS_Store
@@ -11,3 +12,4 @@
 *.exe
 
 ## Directories
+/build

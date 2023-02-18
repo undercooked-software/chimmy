@@ -1,0 +1,4 @@
+GAME_DIR=/mnt/game/chimmy
+sudo cp ./build/wiz/* $GAME_DIR
+sudo cp -r ./data $GAME_DIR
+sudo cp ./lib/wiz/libSDL-1.2.so.0 $GAME_DIR

@@ -1,0 +1,30 @@
+/* list of OpenGL functions sorted alphabetically
+   If you need to use a GL function from the SDL video subsystem,
+   change it's entry from SDL_PROC_UNUSED to SDL_PROC and rebuild.
+*/
+/* modified by ikari 2010.2.10 */
+#define SDL_PROC_UNUSED(ret,func,params)
+SDL_PROC(void,glGenTextures,(GLsizei n, GLuint *textures))
+SDL_PROC(void,glBindTexture,(GLenum,GLuint))
+SDL_PROC(void,glTexImage2D,(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels))
+SDL_PROC(void,glFlush,(void))
+SDL_PROC(void,glTexSubImage2D,(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *pixels))
+SDL_PROC(void,glVertexPointer,(GLint size, GLenum type,GLsizei stride, const GLvoid * pointer))
+SDL_PROC(void,glTexCoordPointer,(GLint size, GLenum type, GLsizei stride, const GLvoid * pointer))
+SDL_PROC(void,glDrawArrays,(GLenum mode, GLint first, GLsizei count))
+SDL_PROC(void,glEnable,(GLenum cap))
+SDL_PROC(void,glDisable,(GLenum cap))
+SDL_PROC(void,glTexEnvf,(GLenum target, GLenum pname, GLfloat param))
+SDL_PROC(void,glTexParameteri,(GLenum target, GLenum pname, GLint param))
+SDL_PROC(void,glPixelStorei,(GLenum pname, GLint param))
+SDL_PROC(void,glBlendFunc,(GLenum,GLenum))
+SDL_PROC(void,glColor4x,(GLfixed,GLfixed,GLfixed,GLfixed))
+SDL_PROC(void,glViewport,(GLint x, GLint y, GLsizei width, GLsizei height))
+SDL_PROC(void,glMatrixMode,(GLenum mode))
+SDL_PROC(void,glPushMatrix,(void))
+SDL_PROC(void,glLoadIdentity,(void))
+SDL_PROC(void,glOrthox,(GLfixed left, GLfixed right, GLfixed bottom, GLfixed top, GLfixed zNear, GLfixed zFar)) 
+SDL_PROC(void,glPopMatrix,(void))
+SDL_PROC(void,glClear,(GLbitfield mask))
+SDL_PROC(void,glDeleteTextures,(GLsizei n, GLuint *textures))
+SDL_PROC(void,glEnableClientState,(GLenum array))
