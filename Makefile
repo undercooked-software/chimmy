@@ -16,9 +16,6 @@ OPEN2X_OUTPUT=./build/wiz
 
 all: $(SRC)
 
-# %: main.c
-# 	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $(LINUX_OUTPUT)/$(BIN)
-
 %: wiz_main.c
 	$(OPEN2X) $(CFLAGS) -B/usr/bin/mold $< -o $(OPEN2X_OUTPUT)/$(BIN).gpe -L/opt/arm-openwiz-linux-gnu/lib $(LIBS)
 
