@@ -3,33 +3,38 @@
 
 #include "base_types.h"
 
+/* URL: https://colors.artyclick.com/color-name-finder/ */
 enum {
-  BLACK           = 0x000000,
-  CLOUD           = 0xC4C4C4,
-  WHITE           = 0xFFFFFF,
-  DARK_RED        = 0x7F0702,
-  CRIMSON_RED     = 0xA50002,
-  TOMATO          = 0xDB2800,
-  DEEP_SAFRON     = 0xFE983A,
-  DARK_EBONY      = 0x422C02,
-  CORN_HARVEST    = 0x8B6F01,
-  OLD_GOLD        = 0xF1BD3C,
-  BRANDY          = 0xFFD8AB,
-  WINTER_HAZEL    = 0xFEE5A2,
-  DEEP_GREEN      = 0x065E03,
-  DARK_LIME_GREEN = 0x81D011,
-  LEAFY_GREEN     = 0x4CDC48,
-  BLUE_GEM        = 0x26178F,
-  OCEAN           = 0x008189,
-  BUTTERFLY_BLUE  = 0x3CBDFE,
-  BARNEY_PURPLE   = 0xBC02BC,
-  MAGENTA         = 0xFF00FF,
+  BLACK                 = 0x000000, /* good */
+  ASH_GREY              = 0xBBBBBB, /* good */
+  CLOUD                 = 0xC4C4C4, /* good */
+  SMOKEY_GREY           = 0x747474, /* good */
+  STARDUST              = 0x9C9C9C, /* approximate */
+  WHITE                 = 0xFFFFFF, /* good */
+  REDWOOD               = 0x5E1901, /* fixed */
+  CRIMSON_RED           = 0xA40001, /* approximate */
+  TOMATO_RED            = 0xD92900, /* approximate */
+  DEEP_SAFRON           = 0xFD9839, /* fixed */
+  DARK_EBONY            = 0x412C01, /* fixed */
+  MUDDY_BROWN           = 0x896F00, /* approximate */
+  MACARONI_AND_CHEESE   = 0xF0BC3C, /* fixed */
+  SUNSET                = 0xFCD8A9, /* approximate */
+  SANDWISP              = 0xFBE4A0, /* fixed */
+  BRITISH_RACING_GREEN  = 0x004F00, /* fixed */
+  AO                    = 0x009400, /* approximate */
+  APPLE_GREEN           = 0x81D010, /* approximate */
+  FRESH_GREEN           = 0x5BD541, /* fixed */
+  BLUE_GEM              = 0x25188D, /* approximate */
+  OCEAN                 = 0x008187, /* fixed */
+  CRYSTAL_BLUE          = 0x3CBCFC, /* approximate */
+  BARNEY                = 0xBA01BB, /* approximate */
+  PERSIAN_PINK          = 0xFB74B3, /* approximate */
+  MAGENTA               = 0xFF00FF, /* good */
 };
 
-/* 4byte struct */
 struct rgb {
   u8 r,g,b;
   u8 unused;
-};
+}; /* 4byte */
 
 #endif /* COLORS_H */
