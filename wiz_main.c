@@ -7,14 +7,8 @@
 enum { FALSE, TRUE };
 enum { FAILURE = -1, SUCCESS };
 
-#if 0
-# define SCREEN_WIDTH  320 /* -- WIZ MAX WIDTH */
-# define SCREEN_HEIGHT 240 /* -- WIZ MAX HEIGHT */
-#else
-# define SCREEN_WIDTH  200    /* approximately 10 times chimmy width */
-# define SCREEN_HEIGHT 160    /* approximately 8 times chimmy height */
-#endif
-
+#define SCREEN_WIDTH  320
+#define SCREEN_HEIGHT 240
 #define SCREEN_DEPTH  16     /* 16bpp is apparently the fastest on wiz? */
 
 #define GAME_NAME "chimmy"
@@ -54,6 +48,20 @@ enum {
 };
 
 global SDL_Surface* texture[BITMAP_COUNT];
+
+enum {
+  CHIMMY_ANIM_UP    = 0,
+  CHIMMY_ANIM_RIGHT = 3,
+  CHIMMY_ANIM_DOWN  = 8,
+  CHIMMY_ANIM_LEFT  = 12,
+  CHIMMY_ANIM_WIN   = 17,
+  CHIMMY_ANIM_LOSE  = 18,
+};
+
+struct animated_sprite {
+  SDL_Surface* spritesheet;
+  u8 anim_index; /* 0-255 */
+};
 
 internal SDL_Surface*
 bmp_load(const char* filename) {
@@ -105,8 +113,7 @@ main(int argc, char ** argv) {
   SDL_WM_SetCaption(GAME_NAME, NULL); /* this may need to be called after SDL_SetVideoMode */
 #endif
   /* initialize the screen / window */
-  screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT,
-                            SCREEN_DEPTH, SDL_SWSURFACE);
+  screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_DEPTH, SDL_SWSURFACE);
   if (!screen) return FAILURE;
   { /* initialize joystick - wiz only? */
     SDL_Joystick* gamepad = NULL;
