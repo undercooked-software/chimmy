@@ -7,38 +7,51 @@
 enum { FALSE, TRUE };
 enum { FAILURE = -1, SUCCESS };
 
-#define SCREEN_WIDTH  320
-#define SCREEN_HEIGHT 240
-#define SCREEN_DEPTH  16     /* 16bpp is apparently the fastest on wiz? */
+#define SCREEN_WIDTH      320
+#define SCREEN_HEIGHT     240
+#define SCREEN_DEPTH      16    /* 16bpp is apparently the fastest on wiz? */
+#define BACKBUFFER_WIDTH  160
+#define BACKBUFFER_HEIGHT 120
+
+internal i32
+calculate_display_scale() {
+  i32 wmod = SCREEN_WIDTH % BACKBUFFER_WIDTH;
+  i32 hmod = SCREEN_HEIGHT % BACKBUFFER_HEIGHT;
+  if (wmod != 0 || hmod != 0)
+    return FAILURE;
+
+  return SCREEN_WIDTH / BACKBUFFER_WIDTH;
+}
 
 #define GAME_NAME "chimmy"
 
 enum {
 /* d-pad */
-  WIZ_UP,               /* 0 */
-  WIZ_UP_LEFT,
-  WIZ_LEFT,
-  WIZ_DOWN_LEFT,
-  WIZ_DOWN,
-  WIZ_DOWN_RIGHT,
-  WIZ_RIGHT,
-  WIZ_UP_RIGHT,
+  GP2X_BUTTON_UP,         /* 0 */
+  GP2X_BUTTON_UPLEFT,
+  GP2X_BUTTON_LEFT,
+  GP2X_BUTTON_DOWNLEFT,
+  GP2X_BUTTON_DOWN,
+  GP2X_BUTTON_DOWNRIGHT,
+  GP2X_BUTTON_RIGHT,
+  GP2X_BUTTON_UPRIGHT,
+  GP2X_BUTTON_CLICK = 18,
 /* start+select */
-  WIZ_MENU,             /* 8 */
-  WIZ_SELECT,
+  GP2X_BUTTON_START = 8,
+  GP2X_BUTTON_SELECT,
 /* shoulders */
-  WIZ_L_BUTTON,         /* 10 */
-  WIZ_R_BUTTON,
+  GP2X_BUTTON_L,          /* 10 */
+  GP2X_BUTTON_R,
 /* face buttons */
-  WIZ_A,                /* 12 */
-  WIZ_B,
-  WIZ_X,
-  WIZ_Y,
+  GP2X_BUTTON_A,          /* 12 */
+  GP2X_BUTTON_B,
+  GP2X_BUTTON_X,
+  GP2X_BUTTON_Y,
 /* volume controls */
-  WIZ_VOL_UP,           /* 16 */
-  WIZ_VOL_DOWN,
+  GP2X_BUTTON_VOLUP,      /* 16 */
+  GP2X_BUTTON_VOLDOWN,
 /* -------------- */
-  WIZ_BUTTON_COUNT,     /* 18 */
+  GP2X_BUTTON_COUNT = 19,
 };
 
 enum {
@@ -56,11 +69,6 @@ enum {
   CHIMMY_ANIM_LEFT  = 12,
   CHIMMY_ANIM_WIN   = 17,
   CHIMMY_ANIM_LOSE  = 18,
-};
-
-struct animated_sprite {
-  SDL_Surface* spritesheet;
-  u8 anim_index; /* 0-255 */
 };
 
 internal SDL_Surface*
@@ -98,6 +106,7 @@ bmp_trans_load(const char* filename, u32 color) {
 int
 main(int argc, char ** argv) {
   SDL_Surface* screen = NULL;
+  SDL_Surface* backbuffer = NULL;
   u32 flags = 0;
 
   flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK;
@@ -115,6 +124,11 @@ main(int argc, char ** argv) {
   /* initialize the screen / window */
   screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_DEPTH, SDL_SWSURFACE);
   if (!screen) return FAILURE;
+  backbuffer =
+    SDL_CreateRGBSurface(SDL_SWSURFACE, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT, SCREEN_DEPTH,
+                         screen->format->Rmask, screen->format->Gmask, screen->format->Rmask,
+                         screen->format->Amask);
+  if (!backbuffer) return FAILURE;
   { /* initialize joystick - wiz only? */
     SDL_Joystick* gamepad = NULL;
     gamepad = SDL_JoystickOpen(0);
@@ -131,13 +145,13 @@ main(int argc, char ** argv) {
     r32 movespeed = 0.2;
     struct rgb bg_col = rgb_unpack(CLOUD);
 
-    chimmy.x = (SCREEN_WIDTH / 4);
-    chimmy.y = (SCREEN_HEIGHT / 2) - (chimmy.h / 2);
+    chimmy.x = (BACKBUFFER_WIDTH / 4);
+    chimmy.y = (BACKBUFFER_HEIGHT / 2) - (chimmy.h / 2);
     chimmy.w = texture[BITMAP_CHIMMY]->w;
     chimmy.h = texture[BITMAP_CHIMMY]->h;
-    clip.x = 20;
+    clip.x = 0;
     clip.y = 0;
-    clip.w = clip.h = 20;
+    clip.w = clip.h = 16;
 
     x = chimmy.x;
     y = chimmy.y;
@@ -147,24 +161,28 @@ main(int argc, char ** argv) {
         case SDL_QUIT: { goto defer; }break;
         case SDL_JOYBUTTONDOWN: {
           switch (event.jbutton.button) {
-            case WIZ_MENU: { goto defer; }break;
-            case WIZ_UP: { y -= movespeed; }break;
-            case WIZ_UP_LEFT: { y -= movespeed; x -= movespeed; }break;
-            case WIZ_LEFT: { x -= movespeed; }break;
-            case WIZ_DOWN_LEFT: { y += movespeed; x -= movespeed; }break;
-            case WIZ_DOWN: { y += movespeed; }break;
-            case WIZ_DOWN_RIGHT: { y += movespeed; x += movespeed; }break;
-            case WIZ_RIGHT: { x += movespeed; }break;
-            case WIZ_UP_RIGHT: { y -= movespeed; x += movespeed; }break;
+            case GP2X_BUTTON_START: { goto defer; }break;
+            case GP2X_BUTTON_UP: { y -= movespeed; }break;
+            case GP2X_BUTTON_UPLEFT: { y -= movespeed; x -= movespeed; }break;
+            case GP2X_BUTTON_LEFT: { x -= movespeed; }break;
+            case GP2X_BUTTON_DOWNLEFT: { y += movespeed; x -= movespeed; }break;
+            case GP2X_BUTTON_DOWN: { y += movespeed; }break;
+            case GP2X_BUTTON_DOWNRIGHT: { y += movespeed; x += movespeed; }break;
+            case GP2X_BUTTON_RIGHT: { x += movespeed; }break;
+            case GP2X_BUTTON_UPRIGHT: { y -= movespeed; x += movespeed; }break;
             InvalidDefaultCase;
           }
+        }break;
+        case SDL_JOYBUTTONUP: {
+          InvalidDefaultCase;
         }break;
       }
       chimmy.x = x;
       chimmy.y = y;
-      SDL_FillRect(screen, NULL,
+      SDL_FillRect(backbuffer, NULL,
                    SDL_MapRGB(screen->format, bg_col.r, bg_col.g, bg_col.b));
-      SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, screen, &chimmy);
+      SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, backbuffer, &chimmy);
+      SDL_BlitSurface(backbuffer, NULL, screen, NULL);
       SDL_Flip(screen);
     }
   }
