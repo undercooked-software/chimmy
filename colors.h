@@ -29,7 +29,7 @@ enum {
   CRYSTAL_BLUE          = 0x3CBCFC, /* approximate */
   BARNEY                = 0xBA01BB, /* approximate */
   PERSIAN_PINK          = 0xFB74B3, /* approximate */
-  MAGENTA               = 0xFF00FF, /* good */
+  MAGENTA               = 0xFF00FF  /* good */
 };
 
 struct rgb {

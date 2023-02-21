@@ -6,5 +6,6 @@ rgb_unpack(u32 color) {
   unpacked.r  = (color & 0x00FF0000) >> 16;
   unpacked.g  = (color & 0x0000FF00) >> 8;
   unpacked.b  = (color & 0x000000FF);
+  unpacked.unused = 0;
   return unpacked;
 }
