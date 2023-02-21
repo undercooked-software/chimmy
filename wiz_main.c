@@ -3,6 +3,7 @@
 #include "base_types.h"
 
 #include "colors.c"
+#include "surface.c"
 
 enum { FALSE, TRUE };
 enum { FAILURE = -1, SUCCESS };
@@ -13,15 +14,7 @@ enum { FAILURE = -1, SUCCESS };
 #define BACKBUFFER_WIDTH  160
 #define BACKBUFFER_HEIGHT 120
 
-internal i32
-calculate_display_scale() {
-  i32 wmod = SCREEN_WIDTH % BACKBUFFER_WIDTH;
-  i32 hmod = SCREEN_HEIGHT % BACKBUFFER_HEIGHT;
-  if (wmod != 0 || hmod != 0)
-    return FAILURE;
-
-  return SCREEN_WIDTH / BACKBUFFER_WIDTH;
-}
+global i32 display_scale = 2;
 
 #define GAME_NAME "chimmy"
 
@@ -51,13 +44,13 @@ enum {
   GP2X_BUTTON_VOLUP,      /* 16 */
   GP2X_BUTTON_VOLDOWN,
 /* -------------- */
-  GP2X_BUTTON_COUNT = 19,
+  GP2X_BUTTON_COUNT = 19
 };
 
 enum {
   BITMAP_CHIMMY,
 /* ---------- */
-  BITMAP_COUNT,
+  BITMAP_COUNT
 };
 
 global SDL_Surface* texture[BITMAP_COUNT];
@@ -68,7 +61,7 @@ enum {
   CHIMMY_ANIM_DOWN  = 8,
   CHIMMY_ANIM_LEFT  = 12,
   CHIMMY_ANIM_WIN   = 17,
-  CHIMMY_ANIM_LOSE  = 18,
+  CHIMMY_ANIM_LOSE  = 18
 };
 
 internal SDL_Surface*
@@ -107,6 +100,7 @@ int
 main(int argc, char ** argv) {
   SDL_Surface* screen = NULL;
   SDL_Surface* backbuffer = NULL;
+  u32 scaling_method = SURFACE_SCALE_PROGRESSIVE;
   u32 flags = 0;
 
   flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK;
@@ -145,13 +139,12 @@ main(int argc, char ** argv) {
     r32 movespeed = 0.2;
     struct rgb bg_col = rgb_unpack(CLOUD);
 
-    chimmy.x = (BACKBUFFER_WIDTH / 4);
-    chimmy.y = (BACKBUFFER_HEIGHT / 2) - (chimmy.h / 2);
+    clip.x = clip.y = 0;
+    clip.w = clip.h = 16;
     chimmy.w = texture[BITMAP_CHIMMY]->w;
     chimmy.h = texture[BITMAP_CHIMMY]->h;
-    clip.x = 0;
-    clip.y = 0;
-    clip.w = clip.h = 16;
+    chimmy.x = (BACKBUFFER_WIDTH / 4);
+    chimmy.y = (BACKBUFFER_HEIGHT / 2) - (clip.h / 2);
 
     x = chimmy.x;
     y = chimmy.y;
@@ -170,6 +163,10 @@ main(int argc, char ** argv) {
             case GP2X_BUTTON_DOWNRIGHT: { y += movespeed; x += movespeed; }break;
             case GP2X_BUTTON_RIGHT: { x += movespeed; }break;
             case GP2X_BUTTON_UPRIGHT: { y -= movespeed; x += movespeed; }break;
+            case GP2X_BUTTON_A: { scaling_method = SURFACE_SCALE_PROGRESSIVE; }break;
+            case GP2X_BUTTON_Y: { scaling_method = SURFACE_SCALE_PROGRESSIVE2; }break;
+            case GP2X_BUTTON_X: { scaling_method = SURFACE_SCALE_INTERLACED; }break;
+            case GP2X_BUTTON_B: { scaling_method = SURFACE_SCALE_INTERLACED2; }break;
             InvalidDefaultCase;
           }
         }break;
@@ -179,10 +176,24 @@ main(int argc, char ** argv) {
       }
       chimmy.x = x;
       chimmy.y = y;
+      SDL_FillRect(screen, NULL, 0x000000);
       SDL_FillRect(backbuffer, NULL,
                    SDL_MapRGB(screen->format, bg_col.r, bg_col.g, bg_col.b));
       SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, backbuffer, &chimmy);
-      SDL_BlitSurface(backbuffer, NULL, screen, NULL);
+      switch (scaling_method) {
+        case SURFACE_SCALE_PROGRESSIVE:{
+          surface_progressive_scale(backbuffer, screen, display_scale);
+        }break;
+        case SURFACE_SCALE_PROGRESSIVE2:{
+          surface_progressive_scale2(backbuffer, screen, display_scale);
+        }break;
+        case SURFACE_SCALE_INTERLACED:{
+          surface_interlaced_scale(backbuffer, screen, display_scale);
+        }break;
+        case SURFACE_SCALE_INTERLACED2:{
+          surface_interlaced_scale2(backbuffer, screen, display_scale);
+        }break;
+      }
       SDL_Flip(screen);
     }
   }
