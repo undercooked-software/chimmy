@@ -93,6 +93,6 @@ extern DECLSPEC void SDLCALL SDL_Quit(void);
 
 /* HYUN_DEBUG */
 #ifndef __cplusplus
-int SDL_videofd; 	// ghcstop_caution: 20050128 add, mplayer
+int SDL_videofd; 	/* ghcstop_caution: 20050128 add, mplayer */
 #endif
 #endif /* _SDL_H */

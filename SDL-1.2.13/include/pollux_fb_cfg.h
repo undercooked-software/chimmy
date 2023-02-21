@@ -17,44 +17,45 @@
 #ifndef _POLLUX_FB_CFG_H
 #define _POLLUX_FB_CFG_H
 
-//------------------------------------------------------------------------------
-// Enum type for vip driver & applictaion
-//------------------------------------------------------------------------------
+/* ------------------------------------------------------------------------------
+ * Enum type for vip driver & applictaion
+ * ------------------------------------------------------------------------------
+ */
 enum __MES_CHIPID {
 	MES_CHIPID_MP2530F = 1,
 	MES_CHIPID_POLLUX  = 2
 };
 
 enum  __MES_MEM_MODE {
-	FRAME_BUFFER = 0,	// 1D memory region
-	VIDEO_BUFFER = 1	// 2D memory region
+	FRAME_BUFFER = 0,	/* 1D memory region */
+	VIDEO_BUFFER = 1	/* 2D memory region */
 };
 
 enum  __MES_MEM_ALIGN {
-	MES_USERDEF = 0,	
+	MES_USERDEF = 0,
 	MES_NORMAL  = 1,
 	MES_MPEG    = 256,
-	MES_H264    = 512	
+	MES_H264    = 512
 };
 
 enum __MES_VID_DEV
 {
-	PRI_VIDEO   = 1,	// Primary 	 MLC Video Layer
-	SEC_VIDEO 	= 2		// Secondary MLC Video Layer
+	PRI_VIDEO   = 1,	/* Primary 	 MLC Video Layer */
+	SEC_VIDEO 	= 2		/* Secondary MLC Video Layer */
 };
 
 enum __MES_MLC_DEV
 {
-	PRI_MLC 	= 1,	// Primary 	 MLC
-	SEC_MLC 	= 2		// Secondary MLC
+	PRI_MLC 	= 1,	/* Primary 	 MLC */
+	SEC_MLC 	= 2		/* Secondary MLC */
 };
 
 enum __LCD_OLED_LIGHT
 {
-    HIGH_LIGHT_LCD,    
+    HIGH_LIGHT_LCD,
     MID_LIGHT_LCD,
     LESS_MID_LIGHT_LCD,
-    LOW_LIGHT_LCD,
+    LOW_LIGHT_LCD
 };
 
 enum __LCD_SUB_COMMAND
@@ -65,7 +66,7 @@ enum __LCD_SUB_COMMAND
     LCD_LIGHT_SET_CMD,
     LCD_PANEL_ID_CMD,
     LCD_DIRECTION_ON_CMD,    /* frame buff 320x240 */
-    LCD_DIRECTION_OFF_CMD,   /* frame buff 240x320 */ 
+    LCD_DIRECTION_OFF_CMD    /* frame buff 240x320 */
 };
 
 
@@ -112,82 +113,80 @@ typedef enum __TV_COMMAND	    TV_COMMAND;
 #define MES_H264_X_ALIGN		512
 #define MES_H264_Y_ALIGN		512
 
-//------------------------------------------------------------------------------
-// Display driver parameters
-//------------------------------------------------------------------------------
-//
-// Display(LCD) information struct
-//
+/* ------------------------------------------------------------------------------
+ * Display driver parameters
+ *------------------------------------------------------------------------------
+ */
+/* Display(LCD) information struct */
 typedef struct _FB_INFORMATION
 {
-	u_int32_t		ScreenWidth;		// full screen width
-	u_int32_t		ScreenHeight;		// full screen height
+	u_int32_t		ScreenWidth;		/* full screen width */
+	u_int32_t		ScreenHeight;		/* full screen height */
 	int32_t			Frequency;
 	int32_t			ColorDepth;
 	u_int32_t		ColorKey;
 	MES_CHIPID		CHIPID;
-	u_int32_t		FrameMemPBase;		// 1D memory physical base.
-	u_int32_t		FrameMemVBase;		// 1D memory Virtual  base.	
-	u_int32_t		FrameMemSize;		// 1D memory size.
-	u_int32_t		BlockMemPBase;		// 2D memory physical base.
-	u_int32_t		BlockMemVBase;		// 2D memory Virtual  base.	
-	u_int32_t		BlockMemSize;		// 2D memory size.
-	u_int32_t		BlockMemStride; 	// 2D memory stride.
-	u_int32_t		IsDualDisplay;		// define Dual display.
-	u_int32_t		IsPrimaryMain;		// define main display devuce.
-	u_int32_t		PriScreenWidth;		// primary screen width
-	u_int32_t		PriScreenHeight;	// primary screen height
-	u_int32_t		SecScreenWidth;		// primary screen width
-	u_int32_t		SecScreenHeight;	// primary screen height	
+	u_int32_t		FrameMemPBase;		/* 1D memory physical base. */
+	u_int32_t		FrameMemVBase;		/* 1D memory Virtual  base. */
+	u_int32_t		FrameMemSize;		/* 1D memory size. */
+	u_int32_t		BlockMemPBase;		/* 2D memory physical base. */
+	u_int32_t		BlockMemVBase;		/* 2D memory Virtual  base. */
+	u_int32_t		BlockMemSize;		/* 2D memory size. */
+	u_int32_t		BlockMemStride; 	/* 2D memory stride. */
+	u_int32_t		IsDualDisplay;		/* define Dual display. */
+	u_int32_t		IsPrimaryMain;		/* define main display device. */
+	u_int32_t		PriScreenWidth;		/* primary screen width */
+	u_int32_t		PriScreenHeight;	/* primary screen height */
+	u_int32_t		SecScreenWidth;		/* primary screen width */
+	u_int32_t		SecScreenHeight;	/* primary screen height */
 } FB_INFO, *LPFB_INFO;
 
-//------------------------------------------------------------------------------
-// Display driver Video memory allocate parameters
-//------------------------------------------------------------------------------
-//
-// struct for surface
-// this struct has a memory space for a single surface.
-//
+/* ------------------------------------------------------------------------------
+ * Display driver Video memory allocate parameters
+ *------------------------------------------------------------------------------
+ */
+/* struct for surface */
+/* this struct has a memory space for a single surface. */
 typedef struct _FB_MEMINFO
 {
-	u_int32_t			Address;	// Allocated address.	
-	MES_MEM_MODE		MemMode;	// memory mode(1D/2D). 
-	MES_MEM_ALIGN		Align;		// Align type(mpeg, h264, 3D, nomal).
-	u_int32_t		    AlignX;		// if Align type is MES_USERDEF, align y
-	u_int32_t		    AlignY;		// if Align type is MES_USERDEF, align y
-	u_int32_t			FourCC;		// FourCC, define allocate memory format		
-	int32_t				Width;		// Image width.
-	int32_t				Height;		// Image height.	
-	u_int32_t			PhyAddr;	// 2D or 1D physical address for surface
-	u_int32_t			Stride;		// 2D or 1D physical address for surface
-	u_int32_t			Offset;		// 2D or 1D physical address for surface	
-	MES_VID_DEV			VideoDev;	// Priamry or Secondary Video device
+	u_int32_t			Address;	/* Allocated address. */
+	MES_MEM_MODE		MemMode;	/* memory mode(1D/2D). */
+	MES_MEM_ALIGN		Align;		/* Align type(mpeg, h264, 3D, nomal). */
+	u_int32_t		    AlignX;		/* if Align type is MES_USERDEF, align y */
+	u_int32_t		    AlignY;		/* if Align type is MES_USERDEF, align y */
+	u_int32_t			FourCC;		/* FourCC, define allocate memory format */
+	int32_t				Width;		/* Image width. */
+	int32_t				Height;		/* Image height. */
+	u_int32_t			PhyAddr;	/* 2D or 1D physical address for surface */
+	u_int32_t			Stride;		/* 2D or 1D physical address for surface */
+	u_int32_t			Offset;		/* 2D or 1D physical address for surface */
+	MES_VID_DEV			VideoDev;	/* Priamry or Secondary Video device */
 } FB_MEMINFO, * LPFB_MEMINFO;
 
-//
-// struct for video surface(LuCbCr format)
-// this struct has Lu, Cb, Cr memory spaces for video surface
-//
+/*
+ * struct for video surface(LuCbCr format)
+ * this struct has Lu, Cb, Cr memory spaces for video surface
+ */
 typedef struct _FB_VMEMINFO
 {
-	u_int32_t			Address;	// Allocated address.	
-	MES_MEM_MODE		MemMode;	// memory mode(1D/2D). 
-	MES_MEM_ALIGN		Align;		// Align type(mpeg, h264, 3D, nomal).
-	u_int32_t		    AlignX;		// if Align type is MES_USERDEF, align y
-	u_int32_t		    AlignY;		// if Align type is MES_USERDEF, align y
-	u_int32_t			FourCC;		// FourCC, define allocate memory format	
-	int32_t				Width;		// Image width.
-	int32_t				Height;		// Image height.	
-	u_int32_t			LuAddr;		// 2D or 1D physical address for video surface(YUV) 
-	u_int32_t			CbAddr;		// 2D or 1D physical address for video surface(YUV)
-	u_int32_t			CrAddr;		// 2D or 1D physical address for video surface(YUV) 
-	u_int32_t			LuStride;	// 2D or 1D stride value for video surface(YUV)
-	u_int32_t			CbStride;	// 2D or 1D stride value for video surface(YUV)
-	u_int32_t			CrStride;	// 2D or 1D stride value for video surface(YUV)
-	u_int32_t			LuOffset;	// 2D format addr or 1D physical address.
-	u_int32_t			CbOffset;	// 2D format addr or 1D physical address.
-	u_int32_t			CrOffset;	// 2D format addr or 1D physical address.
-	MES_VID_DEV			VideoDev;	// Priamry or Secondary Video device
+	u_int32_t			Address;	/* Allocated address. */
+	MES_MEM_MODE		MemMode;	/* memory mode(1D/2D). */
+	MES_MEM_ALIGN		Align;		/* Align type(mpeg, h264, 3D, nomal). */
+	u_int32_t		    AlignX;		/* if Align type is MES_USERDEF, align y */
+	u_int32_t		    AlignY;		/* if Align type is MES_USERDEF, align y */
+	u_int32_t			FourCC;		/* FourCC, define allocate memory format */
+	int32_t				Width;		/* Image width. */
+	int32_t				Height;		/* Image height. */
+	u_int32_t			LuAddr;		/* 2D or 1D physical address for video surface(YUV) */
+	u_int32_t			CbAddr;		/* 2D or 1D physical address for video surface(YUV) */
+	u_int32_t			CrAddr;		/* 2D or 1D physical address for video surface(YUV) */
+	u_int32_t			LuStride;	/* 2D or 1D stride value for video surface(YUV) */
+	u_int32_t			CbStride;	/* 2D or 1D stride value for video surface(YUV) */
+	u_int32_t			CrStride;	/* 2D or 1D stride value for video surface(YUV) */
+	u_int32_t			LuOffset;	/* 2D format addr or 1D physical address. */
+	u_int32_t			CbOffset;	/* 2D format addr or 1D physical address. */
+	u_int32_t			CrOffset;	/* 2D format addr or 1D physical address. */
+	MES_VID_DEV			VideoDev;	/* Priamry or Secondary Video device */
 } FB_VMEMINFO, * LPFB_VMEMINFO;
 
 
@@ -199,10 +198,10 @@ typedef struct _FB_RGBSET
 	int32_t		Top;
 	int32_t		Right;
 	int32_t		Bottom;
-	u_int32_t	HStride;	
-	u_int32_t	VStride;	
-	int32_t     enable3D;    
-	u_int32_t	Bakcol;	
+	u_int32_t	HStride;
+	u_int32_t	VStride;
+	int32_t   enable3D;
+	u_int32_t	Bakcol;
 	u_int32_t   Mlc_dev;
 } FB_RGBSET, * LPFB_RGBSET;
 
@@ -218,45 +217,44 @@ typedef struct _FB_TVCONF
 {
 	u_int8_t    command;
 	u_int8_t	tv_mode;
-	u_int32_t   SecScreenWidth;		
-	u_int32_t	SecScreenHeight;	
+	u_int32_t   SecScreenWidth;
+	u_int32_t	SecScreenHeight;
 } FB_TVCONF, * LPFB_TVCONF;
 
-//
-// video surface configuration struct 
-//
-
+/* video surface configuration struct */
 typedef struct _FB_VIDEO_CONF
-{	
-	u_int32_t		Flags;		// flags for video device set.	
-	u_int32_t		FourCC;		// FourCC, define video format.		
-	u_int32_t		ColorKey;	// Transparency Color Key of screen
-	int32_t	    	SrcWidth;	// The source width of the overlay image.
-	int32_t	    	SrcHeight;	// The source height of the overlay image.
-	int32_t	    	DstWidth;	// The target width of the overlay image.
-	int32_t	    	DstHeight;	// The target height of the overlay image.
-//	RECTL			rVIDRECT;	// A RECT that defines the position. (Windows only)
-	int32_t			Left;		// Position information - use integer instead of rectangle structure
-	int32_t			Top;		//
-	int32_t			Right;		//
-	int32_t			Bottom;		//
-	MES_VID_DEV	VideoDev;	// Priamry or Secondary Video device
+{
+	u_int32_t		Flags;		/* flags for video device set. */
+	u_int32_t		FourCC;		/* FourCC, define video format. */
+	u_int32_t		ColorKey;	/* Transparency Color Key of screen */
+	int32_t	    	SrcWidth;	/* The source width of the overlay image. */
+	int32_t	    	SrcHeight;	/* The source height of the overlay image. */
+	int32_t	    	DstWidth;	/* The target width of the overlay image. */
+	int32_t	    	DstHeight;	/* The target height of the overlay image. */
+	/* RECTL			rVIDRECT;	/1* A RECT that defines the position. (Windows only) *1/ */
+	int32_t			Left;		/* Position information - use integer instead of rectangle structure */
+	int32_t			Top;
+	int32_t			Right;
+	int32_t			Bottom;
+	MES_VID_DEV	VideoDev;	/* Priamry or Secondary Video device */
 } __attribute__((packed)) FB_VIDEO_CONF, * LPFB_VIDEO_CONF;
 
 
-//------------------------------------------------------------------------------
-// Display driver video flags
-//------------------------------------------------------------------------------
+/* ------------------------------------------------------------------------------
+ * Display driver video flags
+ * ------------------------------------------------------------------------------
+ */
 #define	SET_TPCOLOR 0x00000001
 
-//------------------------------------------------------------------------------
-// Display 2D Memory configuration
-//------------------------------------------------------------------------------
+/* ------------------------------------------------------------------------------
+ * Display 2D Memory configuration
+ * ------------------------------------------------------------------------------
+ */
 #define	MEM_2D_X_BYTE_PER_BLOCK		64
 #define	MEM_2D_Y_BYTE_PER_BLOCK		32
-#define	MEM_2D_X_BLOCK_PER_SEGMEMT	64		// 64 * 64 : 4096
-#define	MEM_2D_Y_BLOCK_PER_SEGMEMT	128		// 64 * 128: 4096
+#define	MEM_2D_X_BLOCK_PER_SEGMEMT	64		/* 64 * 64 : 4096 */
+#define	MEM_2D_Y_BLOCK_PER_SEGMEMT	128		/* 64 * 128: 4096 */
 #define	MEM_2D_Y_COORD_OFFBIT		12
-#define	MEM_2D_X_COORD_OFFBIT		0	
+#define	MEM_2D_X_COORD_OFFBIT		0
 
-#endif // _MP2530F_FB_CFG_H
+#endif /* _MP2530F_FB_CFG_H */

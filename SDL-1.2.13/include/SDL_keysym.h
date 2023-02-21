@@ -33,7 +33,7 @@ typedef enum {
 	/* The keyboard syms have been cleverly chosen to map to ASCII */
 	SDLK_UNKNOWN		= 0,
 	SDLK_FIRST		= 0,
-	SDLK_CRTL_C		= 3, // ghcstop 041206 add: keymap을 뜯어고치면서 ctrl+c도 key event로 먹게 만든다.
+	SDLK_CRTL_C		= 3, /* ghcstop 041206 add: keymap을 뜯어고치면서 ctrl+c도 key event로 먹게 만든다. */
 	SDLK_BACKSPACE		= 8,
 	SDLK_TAB		= 9,
 	SDLK_CLEAR		= 12,

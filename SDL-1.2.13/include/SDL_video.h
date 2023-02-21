@@ -906,7 +906,7 @@ extern DECLSPEC int SDL_GetLcdMode(void);
 
 extern DECLSPEC int SDLCALL SDL_GetGphBoard(unsigned char * board_num);
 
-// jhkang 080722 [[
+/* jhkang 080722 [[ */
 extern DECLSPEC int SDLCALL SDL_FBLuminance(unsigned int * value);
 
 extern DECLSPEC int SDLCALL SDL_FBRGBControl(FB_RGBSET * rgbset);
@@ -928,7 +928,7 @@ extern DECLSPEC int SDLCALL SDL_FBVideoMemoryUpdate(FB_VMEMINFO * vmem);
 extern DECLSPEC int SDLCALL SDL_FBVideoStart(FB_VMEMINFO * vmem);
 
 extern DECLSPEC int SDLCALL SDL_FBVideoStop(unsigned int * vstop);
-// jhkang ]]
+/* jhkang ]] */
 
 /* 2010.5.27 ikari */
 extern DECLSPEC int SDL_WizRotateYUV(unsigned char *src,unsigned char *dst,SDL_Rect *rect,int srcstride); 
