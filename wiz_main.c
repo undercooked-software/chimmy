@@ -1,5 +1,7 @@
 #include <SDL.h>
 #include <SDL_video.h>
+#include <string.h>
+
 #include "base_types.h"
 #include "buttons.h"
 
@@ -21,6 +23,8 @@ global i32 display_scale = 2;
 
 enum {
   BITMAP_CHIMMY,
+  BITMAP_INTERACTABLES,
+  BITMAP_DRAGON,
 /* ---------- */
   BITMAP_COUNT
 };
@@ -34,6 +38,19 @@ enum {
   CHIMMY_ANIM_LEFT  = 12,
   CHIMMY_ANIM_WIN   = 17,
   CHIMMY_ANIM_LOSE  = 18
+};
+
+enum {
+  INTERACTABLE_BANANA,
+  INTERACTABLE_APPLE,
+  INTERACTABLE_OCTAGON
+};
+
+enum {
+  DRAGON_ANIM_NORMAL,
+  DRAGON_ANIM_DEAD1,
+  DRAGON_ANIM_DEAD2,
+  DRAGON_ANIM_DESPAWN
 };
 
 internal SDL_Surface*
@@ -102,7 +119,9 @@ main(int argc, char ** argv) {
   }
 
   /* loading game resources */
-  texture[BITMAP_CHIMMY] = bmp_trans_load("data/image/chimmy.bmp", MAGENTA);
+  texture[BITMAP_CHIMMY]        = bmp_trans_load("data/image/chimmy.bmp", MAGENTA);
+  texture[BITMAP_INTERACTABLES] = bmp_trans_load("data/image/interactables.bmp", MAGENTA);
+  texture[BITMAP_DRAGON]        = bmp_trans_load("data/image/dragon.bmp", MAGENTA);
 
   {
     SDL_Rect chimmy, clip;
@@ -110,6 +129,12 @@ main(int argc, char ** argv) {
     r32 x = 0, y = 0;
     r32 movespeed = 0.2;
     struct rgb bg_col = rgb_unpack(CLOUD);
+    u32 frame = 0;
+    u32 fps = 0;
+    u32 fps_timer = SDL_GetTicks();
+    u32 update_timer = SDL_GetTicks();
+
+    /* get_ticks is SDL_GetTicks() - start_ticks; */
 
     clip.x = clip.y = 0;
     clip.w = clip.h = 16;
@@ -148,7 +173,11 @@ main(int argc, char ** argv) {
       }
       chimmy.x = x;
       chimmy.y = y;
-      SDL_FillRect(screen, NULL, 0x000000);
+      /*
+       * NOTE: if you clear the backbuffer instead of the screen, while in interlaced scale mode
+       * you can create some interesting motion blur style effects.
+       */
+      memset(screen->pixels, 0, screen->h * screen->pitch);
       SDL_FillRect(backbuffer, NULL,
                    SDL_MapRGB(screen->format, bg_col.r, bg_col.g, bg_col.b));
       SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, backbuffer, &chimmy);
@@ -167,6 +196,14 @@ main(int argc, char ** argv) {
         }break;
       }
       SDL_Flip(screen);
+
+      frame++;
+
+      /* update every second? */
+      if (SDL_GetTicks() - update_timer > 1000) {
+        fps = frame / ((SDL_GetTicks() - fps_timer) / 1000);
+        update_timer = SDL_GetTicks();
+      }
     }
   }
 

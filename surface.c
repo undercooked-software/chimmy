@@ -19,7 +19,7 @@ internal void
 surface_interlaced_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale) {
   /*
    * Counterpillow's clean implementation, modified for interlaced scale
-   * Why does this perform slower than my version?!
+   * Currently performs better than mine based on our current FPS margins!
    */
   i32 x, y;
   u16* screen_pixels      = (u16*)screen->pixels;
@@ -34,6 +34,7 @@ surface_interlaced_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scal
 
 internal void
 surface_progressive_scale(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale) {
+  /* This is very consistent when measured via FPS? */
   i32 x, y, i;
   SDL_Surface* line;
   SDL_Rect position;
