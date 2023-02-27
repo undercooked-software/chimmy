@@ -1,5 +1,37 @@
 #include "surface.h"
 
+internal SDL_Surface*
+bmp_load(const char* filename) {
+  /* since the bmp is a 32bit image, it will be a different bpp than the screen.
+   * this means that the texture will be unoptimized by default.
+   * this isn't an issue on PC because we would always be using 32bpp
+   */
+  SDL_Surface* optimized_bmp;
+  {
+    SDL_Surface* raw_bmp = SDL_LoadBMP(filename);
+    if (!raw_bmp) return NULL;
+    optimized_bmp = SDL_DisplayFormat(raw_bmp);
+    SDL_FreeSurface(raw_bmp);
+  }
+
+  return optimized_bmp;
+}
+
+internal SDL_Surface*
+bmp_trans_load(const char* filename, u32 color) {
+  SDL_Surface* optimized_bmp = bmp_load(filename);
+  if (!optimized_bmp) return NULL;
+
+  {
+    struct rgb unpacked = rgb_unpack(color);
+    u32 key = SDL_MapRGB(optimized_bmp->format,
+                         unpacked.r, unpacked.g, unpacked.b);
+    SDL_SetColorKey(optimized_bmp, SDL_SRCCOLORKEY, key);
+  }
+
+  return optimized_bmp;
+}
+
 internal void
 surface_interlaced_scale(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale) {
   i32 x, y, i;

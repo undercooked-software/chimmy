@@ -3,7 +3,7 @@
 
 #include <SDL.h>
 #include "base_types.h"
-
+#include "colors.h"
 
 enum {
   SURFACE_SCALE_PROGRESSIVE,

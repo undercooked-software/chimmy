@@ -17,14 +17,16 @@ enum { FAILURE = -1, SUCCESS };
 #define BACKBUFFER_WIDTH  160
 #define BACKBUFFER_HEIGHT 120
 
-global i32 display_scale = 2;
+global i32 display_scale = 2;   /* this should get updated if the screen size gets altered */
 
 #define GAME_NAME "chimmy"
 
 enum {
+  BITMAP_SMALLFONT,
   BITMAP_CHIMMY,
   BITMAP_INTERACTABLES,
   BITMAP_DRAGON,
+  BITMAP_GUERNICA,
 /* ---------- */
   BITMAP_COUNT
 };
@@ -53,37 +55,51 @@ enum {
   DRAGON_ANIM_DESPAWN
 };
 
-internal SDL_Surface*
-bmp_load(const char* filename) {
-  /* since the bmp is a 32bit image, it will be a different bpp than the screen.
-   * this means that the texture will be unoptimized by default.
-   * this isn't an issue on PC because we would always be using 32bpp
-   */
-  SDL_Surface* optimized_bmp;
-  {
-    SDL_Surface* raw_bmp = SDL_LoadBMP(filename);
-    if (!raw_bmp) return NULL;
-    optimized_bmp = SDL_DisplayFormat(raw_bmp);
-    SDL_FreeSurface(raw_bmp);
-  }
+enum {
+  RECT_X,
+  RECT_Y
+};
+enum {
+  RECT_W,
+  RECT_H
+};
 
-  return optimized_bmp;
-}
+struct padded_u8 {
+  u8 id;
+  u8 unused[3];
+}; /* 4byte */
 
-internal SDL_Surface*
-bmp_trans_load(const char* filename, u32 color) {
-  SDL_Surface* optimized_bmp = bmp_load(filename);
-  if (!optimized_bmp) return NULL;
+struct renderable {
+  b32 is_textured;        /* 4byte */
+  union {
+    struct padded_u8 texture;
+    u32 color;
+  } data;                 /* 4byte */
+  SDL_Rect src;           /* ?? */
+  SDL_Rect clip;          /* ?? */
+};
 
-  {
-    struct rgb unpacked = rgb_unpack(color);
-    u32 key = SDL_MapRGB(optimized_bmp->format,
-                         unpacked.r, unpacked.g, unpacked.b);
-    SDL_SetColorKey(optimized_bmp, SDL_SRCCOLORKEY, key);
-  }
+#define WORLD_GUERNICA_ENTITIES (3)
+global struct renderable guernica_entities[WORLD_GUERNICA_ENTITIES];
 
-  return optimized_bmp;
-}
+#define ENTITY_ARRAY(s) Join(Join(WORLD_,s),_ENTITIES)
+
+struct world {
+  u32 bg_col;                   /* 4byte */
+  struct renderable* entities;  /* 4byte */
+  struct world* prev;           /* 4byte */
+  struct world* next;           /* 4byte */
+};
+
+/*
+ * NOTE: perhaps we should consider having an array of worlds, or we should
+ * be implementing some kind of macro to autogenerate these structs/names for us.
+ */
+global struct world*  world_list;
+global struct world   world_start;
+global struct world   world_guernica;
+global struct world   world_boss;
+global struct world   world_end;
 
 int
 main(int argc, char ** argv) {
@@ -119,22 +135,82 @@ main(int argc, char ** argv) {
   }
 
   /* loading game resources */
+  texture[BITMAP_SMALLFONT]     = bmp_trans_load("data/image/small-font.bmp", MAGENTA);
   texture[BITMAP_CHIMMY]        = bmp_trans_load("data/image/chimmy.bmp", MAGENTA);
   texture[BITMAP_INTERACTABLES] = bmp_trans_load("data/image/interactables.bmp", MAGENTA);
   texture[BITMAP_DRAGON]        = bmp_trans_load("data/image/dragon.bmp", MAGENTA);
+  texture[BITMAP_GUERNICA]      = bmp_trans_load("data/image/guernica.bmp", MAGENTA);
+
+  {
+    i32 i;
+    for (i = 0; i < WORLD_GUERNICA_ENTITIES; ++i) {
+      guernica_entities[i].is_textured = TRUE;
+      guernica_entities[i].data.texture.id = BITMAP_GUERNICA;
+    }
+
+    guernica_entities[0].src.x = 0;
+    guernica_entities[0].src.y = 0;
+    guernica_entities[0].src.w = 128;
+    guernica_entities[0].src.h = 128;
+    guernica_entities[0].clip.x = 0;
+    guernica_entities[0].clip.y = 0;
+    guernica_entities[0].clip.w = 128;
+    guernica_entities[0].clip.h = 88;
+
+    guernica_entities[1].src.x = 128;
+    guernica_entities[1].src.y = 8;
+    guernica_entities[1].src.w = 128;
+    guernica_entities[1].src.h = 128;
+    guernica_entities[1].clip.x = 0;
+    guernica_entities[1].clip.y = 88;
+    guernica_entities[1].clip.w = 32;
+    guernica_entities[1].clip.h = 40;
+
+    guernica_entities[2].src.x = 128;
+    guernica_entities[2].src.y = 48;
+    guernica_entities[2].src.w = 128;
+    guernica_entities[2].src.h = 128;
+    guernica_entities[2].clip.x = 32;
+    guernica_entities[2].clip.y = 88;
+    guernica_entities[2].clip.w = 32;
+    guernica_entities[2].clip.h = 40;
+  }
+
+
+  /* construct the maps */
+  world_start.bg_col = CLOUD;
+  world_start.entities = NULL;
+  world_start.prev = &world_end;
+  world_start.next = &world_guernica;
+
+  world_guernica.bg_col = BLACK;
+  world_guernica.entities = guernica_entities;
+  world_guernica.prev = NULL;
+  world_guernica.next = NULL;
+  /* world_guernica.next = &world_boss; */
+
+  world_boss.bg_col = CRIMSON_RED;
+  world_boss.entities = NULL;
+  world_boss.prev = NULL;
+  world_boss.next = &world_end;
+
+  world_end.bg_col = BRITISH_RACING_GREEN;
+  world_end.entities = NULL;
+  world_end.prev = NULL;
+  world_end.next = NULL;
+
+  world_list = &world_start;
 
   {
     SDL_Rect chimmy, clip;
     SDL_Event event;
     r32 x = 0, y = 0;
     r32 movespeed = 0.2;
-    struct rgb bg_col = rgb_unpack(CLOUD);
-    u32 frame = 0;
+    struct rgb bg_col = rgb_unpack(world_list->bg_col);
+    u32 frame_count = 0;
     u32 fps = 0;
     u32 fps_timer = SDL_GetTicks();
     u32 update_timer = SDL_GetTicks();
-
-    /* get_ticks is SDL_GetTicks() - start_ticks; */
 
     clip.x = clip.y = 0;
     clip.w = clip.h = 16;
@@ -150,6 +226,11 @@ main(int argc, char ** argv) {
       switch (event.type) {
         case SDL_QUIT: { goto defer; }break;
         case SDL_JOYBUTTONDOWN: {
+          /*
+           * NOTE: this input method has some issues. particularly the fact that it will input
+           * multiple instances of the same button press for a slight tap.
+           * in some cases this is a good thing, in other areas it can be a source of issues.
+           */
           switch (event.jbutton.button) {
             case GP2X_BUTTON_START: { goto defer; }break;
             case GP2X_BUTTON_UP: { y -= movespeed; }break;
@@ -164,6 +245,18 @@ main(int argc, char ** argv) {
             case GP2X_BUTTON_Y: { scaling_method = SURFACE_SCALE_PROGRESSIVE2; }break;
             case GP2X_BUTTON_X: { scaling_method = SURFACE_SCALE_INTERLACED; }break;
             case GP2X_BUTTON_B: { scaling_method = SURFACE_SCALE_INTERLACED2; }break;
+            case GP2X_BUTTON_L: {
+              if (world_list->prev) {
+                world_list = world_list->prev;
+                bg_col = rgb_unpack(world_list->bg_col);
+              }
+            }break;
+            case GP2X_BUTTON_R: {
+              if (world_list->next) {
+                world_list = world_list->next;
+                bg_col = rgb_unpack(world_list->bg_col);
+              }
+            }break;
             InvalidDefaultCase;
           }
         }break;
@@ -178,9 +271,25 @@ main(int argc, char ** argv) {
        * you can create some interesting motion blur style effects.
        */
       memset(screen->pixels, 0, screen->h * screen->pitch);
+      /*
+       * NOTE: it may be faster to memset to clear the backbuffer with the color of the map.
+       * however, i'm not sure how to do that due to that since the depth is 16bit.
+       */
       SDL_FillRect(backbuffer, NULL,
                    SDL_MapRGB(screen->format, bg_col.r, bg_col.g, bg_col.b));
+      {
+        i32 index;
+        struct renderable* iter = world_list->entities;
+        if (iter) {
+          for (index = 0; index < ENTITY_ARRAY(GUERNICA); ++index, ++iter) {
+            if (iter->is_textured)
+              SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, backbuffer, &iter->src);
+          }
+        }
+      }
+
       SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, backbuffer, &chimmy);
+
       switch (scaling_method) {
         case SURFACE_SCALE_PROGRESSIVE:{
           surface_progressive_scale(backbuffer, screen, display_scale);
@@ -197,17 +306,18 @@ main(int argc, char ** argv) {
       }
       SDL_Flip(screen);
 
-      frame++;
+      frame_count++;
 
       /* update every second? */
       if (SDL_GetTicks() - update_timer > 1000) {
-        fps = frame / ((SDL_GetTicks() - fps_timer) / 1000);
+        fps = frame_count / ((SDL_GetTicks() - fps_timer) / 1000);
         update_timer = SDL_GetTicks();
       }
     }
   }
 
-/* Typically programs on desktop operating systems, memory is freed on application exit.
+/*
+ * Typically programs on desktop operating systems, memory is freed on application exit.
  * I'm currently assuming applications closing on the Wiz would be handled the same way.
  * My thought process for this is that the handheld is in essence running on GNU/Linux.
  */
