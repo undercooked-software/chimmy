@@ -4,8 +4,9 @@
 
 #include "base_types.h"
 #include "internals.h"
-#include "buttons.h"
+#include "display.h"
 #include "surface.h"
+#include "buttons.h"
 
 #include "colors.c"
 #include "surface.c"
@@ -93,10 +94,16 @@ global struct world worlds[WORLD_COUNT];
 
 int
 main(int argc, char** argv) {
-  SDL_Surface* screen = NULL;
-  SDL_Surface* backbuffer = NULL;
-  u32 scaling_method = SURFACE_SCALE_PROGRESSIVE;
+  struct display display;
   u32 flags = 0;
+  u32 scaling_method = SURFACE_SCALE_PROGRESSIVE;
+
+  display.scale = 4;
+  display.w = BACKBUFFER_WIDTH * display.scale;
+  display.h = BACKBUFFER_HEIGHT * display.scale;
+
+  /* setenv("SDL_VIDEO_WAYLAND_WMCLASS", "com.example.chimmy", 0); */
+  /* setenv("SDL_VIDEO_X11_WMCLASS", "com.example.chimmy", 0); */
 
   flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK;
   {
@@ -110,14 +117,14 @@ main(int argc, char** argv) {
   SDL_WM_SetCaption(GAME_NAME, NULL); /* this may need to be called after SDL_SetVideoMode */
 
   /* initialize the screen / window */
-  screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_DEPTH, SDL_SWSURFACE);
-  if (!screen) return FAILURE;
+  display.screen = SDL_SetVideoMode(display.w, display.h, SCREEN_DEPTH, SDL_SWSURFACE);
+  if (!display.screen) return FAILURE;
   {
-    SDL_PixelFormat* fmt = screen->format;
-    backbuffer =
+    SDL_PixelFormat* fmt = display.screen->format;
+    display.backbuffer =
       SDL_CreateRGBSurface(SDL_SWSURFACE, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT, SCREEN_DEPTH,
                            fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
-    if (!backbuffer) return FAILURE;
+    if (!display.backbuffer) return FAILURE;
   }
   { /* initialize joystick - wiz only? */
     SDL_Joystick* gamepad = NULL;
@@ -224,8 +231,9 @@ main(int argc, char** argv) {
        * NOTE: if you clear the backbuffer instead of the screen, while in interlaced scale mode
        * you can create some interesting motion blur style effects.
        */
-      memset(screen->pixels, 0, screen->h * screen->pitch);
-      memset(backbuffer->pixels, worlds[world_index].bg_col, backbuffer->h * backbuffer->pitch);
+      memset(display.screen->pixels, 0, display.screen->h * display.screen->pitch);
+      memset(display.backbuffer->pixels, worlds[world_index].bg_col,
+             display.backbuffer->h * display.backbuffer->pitch);
 
       {
         i32 index;
@@ -233,28 +241,28 @@ main(int argc, char** argv) {
         if (iter) {
           for (index = 0; index < worlds[world_index].entity_count; ++index, ++iter) {
             if (iter->is_textured)
-              SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, backbuffer, &iter->src);
+              SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, display.backbuffer, &iter->src);
           }
         }
       }
 
-      SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, backbuffer, &chimmy);
+      SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, display.backbuffer, &chimmy);
 
       switch (scaling_method) {
         case SURFACE_SCALE_PROGRESSIVE:{
-          surface_progressive_scale(backbuffer, screen, display_scale);
+          surface_progressive_scale(display.backbuffer, display.screen, display.scale);
         }break;
         case SURFACE_SCALE_PROGRESSIVE2:{
-          surface_progressive_scale2(backbuffer, screen, display_scale);
+          surface_progressive_scale2(display.backbuffer, display.screen, display.scale);
         }break;
         case SURFACE_SCALE_INTERLACED:{
-          surface_interlaced_scale(backbuffer, screen, display_scale);
+          surface_interlaced_scale(display.backbuffer, display.screen, display.scale);
         }break;
         case SURFACE_SCALE_INTERLACED2:{
-          surface_interlaced_scale2(backbuffer, screen, display_scale);
+          surface_interlaced_scale2(display.backbuffer, display.screen, display.scale);
         }break;
       }
-      SDL_Flip(screen);
+      SDL_Flip(display.screen);
 
       frame_count++;
 

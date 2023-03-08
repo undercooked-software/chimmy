@@ -4,6 +4,7 @@
 
 #include "base_types.h"
 #include "internals.h"
+#include "display.h"
 #include "buttons.h"
 #include "surface.h"
 
@@ -93,10 +94,13 @@ global struct world worlds[WORLD_COUNT];
 
 int
 main(int argc, char** argv) {
-  SDL_Surface* screen = NULL;
-  SDL_Surface* backbuffer = NULL;
+  struct display display;
   u32 scaling_method = SURFACE_SCALE_PROGRESSIVE;
   u32 flags = 0;
+
+  display.w = 320;
+  display.h = 240;
+  display.scale = 2;
 
   flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK;
   {
@@ -107,14 +111,14 @@ main(int argc, char** argv) {
   SDL_ShowCursor(SDL_DISABLE);
 
   /* initialize the screen / window */
-  screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_DEPTH, SDL_SWSURFACE);
-  if (!screen) return FAILURE;
+  display.screen = SDL_SetVideoMode(display.w, display.h, SCREEN_DEPTH, SDL_SWSURFACE);
+  if (!display.screen) return FAILURE;
   {
-    SDL_PixelFormat* fmt = screen->format;
-    backbuffer =
+    SDL_PixelFormat* fmt = display.screen->format;
+    display.backbuffer =
       SDL_CreateRGBSurface(SDL_SWSURFACE, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT, fmt->BitsPerPixel,
                            fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
-    if (!backbuffer) return FAILURE;
+    if (!display.backbuffer) return FAILURE;
   }
   { /* initialize joystick - wiz only? */
     SDL_Joystick* gamepad = NULL;
@@ -260,37 +264,37 @@ main(int argc, char** argv) {
        * NOTE: if you clear the backbuffer instead of the screen, while in interlaced scale mode
        * you can create some interesting motion blur style effects.
        */
-      memset(screen->pixels, 0, screen->h * screen->pitch);
-      SDL_FillRect(backbuffer, NULL,
-                   SDL_MapRGB(backbuffer->format, bg_col.r, bg_col.g, bg_col.b));
+      memset(display.screen->pixels, 0, display.screen->h * display.screen->pitch);
+      SDL_FillRect(display.backbuffer, NULL,
+                   SDL_MapRGB(display.backbuffer->format, bg_col.r, bg_col.g, bg_col.b));
       {
         i32 index;
         struct renderable* iter = worlds[world_index].entities;
         if (iter) {
           for (index = 0; index < worlds[world_index].entity_count; ++index, ++iter) {
             if (iter->is_textured)
-              SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, backbuffer, &iter->src);
+              SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, display.backbuffer, &iter->src);
           }
         }
       }
 
-      SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, backbuffer, &chimmy);
+      SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, display.backbuffer, &chimmy);
 
       switch (scaling_method) {
         case SURFACE_SCALE_PROGRESSIVE:{
-          surface_progressive_scale(backbuffer, screen, display_scale);
+          surface_progressive_scale(display.backbuffer, display.screen, display.scale);
         }break;
         case SURFACE_SCALE_PROGRESSIVE2:{
-          surface_progressive_scale2(backbuffer, screen, display_scale);
+          surface_progressive_scale2(display.backbuffer, display.screen, display.scale);
         }break;
         case SURFACE_SCALE_INTERLACED:{
-          surface_interlaced_scale(backbuffer, screen, display_scale);
+          surface_interlaced_scale(display.backbuffer, display.screen, display.scale);
         }break;
         case SURFACE_SCALE_INTERLACED2:{
-          surface_interlaced_scale2(backbuffer, screen, display_scale);
+          surface_interlaced_scale2(display.backbuffer, display.screen, display.scale);
         }break;
       }
-      SDL_Flip(screen);
+      SDL_Flip(display.screen);
 
       frame_count++;
 

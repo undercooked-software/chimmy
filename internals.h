@@ -9,20 +9,17 @@
 #endif
 
 #if TARGET==wiz
-typedef u16 PIXEL;
 # define SCREEN_DEPTH 16
+typedef u16 PIXEL;
 #elif TARGET==x86_64
-typedef u32 PIXEL;
 # define SCREEN_DEPTH 32
+typedef u32 PIXEL;
 #else
 # error "You must define TARGET to \"wiz\" or \"x86_64\""
 #endif
 
-global u32 display_scale = 2;   /* this should get updated if the screen size gets altered */
 #define BACKBUFFER_WIDTH  160
 #define BACKBUFFER_HEIGHT 120
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 240
 
 #define GAME_NAME "chimmy"
 
