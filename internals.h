@@ -4,23 +4,25 @@
 
 #include "base_types.h"
 
-#ifndef TARGET
-# error "You must define a TARGET for building."
+#define  SCREEN_DEPTH 32  /* set this as the common default */
+#if TARGET_WIZ
+# undef  SCREEN_DEPTH
+# define SCREEN_DEPTH 16
+#elif TARGET_X86_64
+# undef  SCREEN_DEPTH
+# define SCREEN_DEPTH 32
 #endif
 
-#if TARGET==wiz
-# define SCREEN_DEPTH 16
+#if SCREEN_DEPTH==16
 typedef u16 PIXEL;
-#elif TARGET==x86_64
-# define SCREEN_DEPTH 32
+#elif SCREEN_DEPTH==32
 typedef u32 PIXEL;
-#else
-# error "You must define TARGET to \"wiz\" or \"x86_64\""
 #endif
 
 #define BACKBUFFER_WIDTH  160
 #define BACKBUFFER_HEIGHT 120
 
 #define GAME_NAME "chimmy"
+#define WM_CLASS  "com.example.chimmy"
 
-#endif
+#endif /* INTERNALS_H */

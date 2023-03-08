@@ -14,11 +14,11 @@ all: x86_64 wiz
 
 x86_64: main.c
 	@echo '***********  BUILDING x86_64  ***********'
-	$(CC) $(CFLAGS) -O2 `sdl-config --cflags` -fuse-ld=mold -DTARGET=x86_64 $< -o $(LINUX_OUTPUT)/$(BIN) `sdl-config --libs`
+	$(CC) $(CFLAGS) -O2 `sdl-config --cflags` -fuse-ld=mold -DTARGET_X86_64 $< -o $(LINUX_OUTPUT)/$(BIN) `sdl-config --libs`
 
 wiz: wiz_main.c
 	@echo '*********** BUILDING GP2X-WIZ ***********'
-	$(OPEN2X) $(CFLAGS) -O2 -I./SDL-1.2.13/include -DTARGET=wiz $< -o $(OPEN2X_OUTPUT)/$(BIN).gpe -L/opt/arm-openwiz-linux-gnu/lib -L./lib/wiz -lSDL
+	$(OPEN2X) $(CFLAGS) -O2 -I./SDL-1.2.13/include -DTARGET_WIZ $< -o $(OPEN2X_OUTPUT)/$(BIN).gpe -L/opt/arm-openwiz-linux-gnu/lib -L./lib/wiz -lSDL
 
 PHONY: clean
 clean:
