@@ -1,0 +1,5 @@
+#!/bin/sh
+
+pushd build/linux
+./game
+popd

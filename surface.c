@@ -1,7 +1,12 @@
 #include "surface.h"
 
+#define bmp_load(filename, is_opt) \
+  (is_opt == LOAD_BITMAP_UNOPTIMIZED) ? \
+    bmp_postopt_load(filename) : \
+    bmp_preopt_load(filename)
+
 internal SDL_Surface*
-bmp_load(const char* filename) {
+bmp_postopt_load(const char* filename) {
   /* since the bmp is a 32bit image, it will be a different bpp than the screen.
    * this means that the texture will be unoptimized by default.
    * this isn't an issue on PC because we would always be using 32bpp
@@ -18,25 +23,29 @@ bmp_load(const char* filename) {
 }
 
 internal SDL_Surface*
-bmp_trans_load(const char* filename, u32 color) {
-  SDL_Surface* optimized_bmp = bmp_load(filename);
-  if (!optimized_bmp) return NULL;
+bmp_preopt_load(const char* filename) {
+  return SDL_LoadBMP(filename);
+}
+
+internal SDL_Surface*
+bmp_trans_load(const char* filename, u32 color, enum bmp_load_type loader) {
+  SDL_Surface* bmp = bmp_load(filename, loader);
+  if (!bmp) return NULL;
 
   {
     struct rgb unpacked = rgb_unpack(color);
-    u32 key = SDL_MapRGB(optimized_bmp->format,
-                         unpacked.r, unpacked.g, unpacked.b);
-    SDL_SetColorKey(optimized_bmp, SDL_SRCCOLORKEY, key);
+    u32 key = SDL_MapRGB(bmp->format, unpacked.r, unpacked.g, unpacked.b);
+    SDL_SetColorKey(bmp, SDL_SRCCOLORKEY, key);
   }
 
-  return optimized_bmp;
+  return bmp;
 }
 
 internal void
 surface_interlaced_scale(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale) {
   i32 x, y, i;
-  u16* screen_pixels      = (u16*)screen->pixels;
-  u16* backbuffer_pixels  = (u16*)backbuffer->pixels;
+  PIXEL* screen_pixels      = (PIXEL*)screen->pixels;
+  PIXEL* backbuffer_pixels  = (PIXEL*)backbuffer->pixels;
   for (y = 0; y < backbuffer->h; ++y) {
     for (x = 0; x < backbuffer->w; ++x) {
       for (i = 0; i < scale; ++i) {
@@ -54,8 +63,8 @@ surface_interlaced_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scal
    * Currently performs better than mine based on our current FPS margins!
    */
   i32 x, y;
-  u16* screen_pixels      = (u16*)screen->pixels;
-  u16* backbuffer_pixels  = (u16*)backbuffer->pixels;
+  PIXEL* screen_pixels      = (PIXEL*)screen->pixels;
+  PIXEL* backbuffer_pixels  = (PIXEL*)backbuffer->pixels;
   for (y = 0; y < screen->h; y+=2) {
     for (x = 0; x < screen->w; x++) {
       screen_pixels[y * screen->w + x] =
@@ -70,16 +79,19 @@ surface_progressive_scale(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scal
   i32 x, y, i;
   SDL_Surface* line;
   SDL_Rect position;
-  line = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, 1, 16,
-                              screen->format->Rmask, screen->format->Gmask,
-                              screen->format->Rmask, screen->format->Amask);
+
+  {
+    SDL_PixelFormat* fmt = screen->format;
+    line = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, 1, fmt->BitsPerPixel,
+                                fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
+  }
   position.w = line->w;
   position.h = line->h;
   position.x = 0;
 
   {
-    u16* backbuffer_pixels  = (u16*)backbuffer->pixels;
-    u16* line_pixels        = (u16*)line->pixels;
+    PIXEL* backbuffer_pixels  = (PIXEL*)backbuffer->pixels;
+    PIXEL* line_pixels        = (PIXEL*)line->pixels;
     for (y = 0; y < backbuffer->h; ++y) {
       for (x = 0; x < backbuffer->w; ++x) {
         for (i = 0; i < scale; ++i) {
@@ -103,8 +115,8 @@ surface_progressive_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, i32 sca
    * I like the way it's done, but it seems to be less performant for some reason?
    */
   i32 x, y;
-  u16* screen_pixels      = (u16*)screen->pixels;
-  u16* backbuffer_pixels  = (u16*)backbuffer->pixels;
+  PIXEL* screen_pixels      = (PIXEL*)screen->pixels;
+  PIXEL* backbuffer_pixels  = (PIXEL*)backbuffer->pixels;
   for (y = 0; y < screen->h; y++) {
     for (x = 0; x < screen->w; x++) {
       screen_pixels[y * screen->w + x] =

@@ -1,9 +1,15 @@
 #ifndef SURFACE_H
 #define SURFACE_H
 
-#include <SDL.h>
+#include <SDL/SDL.h>
 #include "base_types.h"
+#include "internals.h"
 #include "colors.h"
+
+enum bmp_load_type {
+  LOAD_BITMAP_UNOPTIMIZED,
+  LOAD_BITMAP_PREOPTIMIZED
+};
 
 enum {
   SURFACE_SCALE_PROGRESSIVE,

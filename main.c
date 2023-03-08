@@ -106,20 +106,23 @@ main(int argc, char** argv) {
   /* disable cursor before screen comes into play so that wiz doesn't show it at all */
   SDL_ShowCursor(SDL_DISABLE);
 
+  /* SDL_WM_SetIcon(SDL_LoadBMP("data/icon.bmp"), NULL); /1* must be called before SetVideoMode *1/ */
+  SDL_WM_SetCaption(GAME_NAME, NULL); /* this may need to be called after SDL_SetVideoMode */
+
   /* initialize the screen / window */
   screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_DEPTH, SDL_SWSURFACE);
   if (!screen) return FAILURE;
   {
     SDL_PixelFormat* fmt = screen->format;
     backbuffer =
-      SDL_CreateRGBSurface(SDL_SWSURFACE, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT, fmt->BitsPerPixel,
+      SDL_CreateRGBSurface(SDL_SWSURFACE, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT, SCREEN_DEPTH,
                            fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
     if (!backbuffer) return FAILURE;
   }
   { /* initialize joystick - wiz only? */
     SDL_Joystick* gamepad = NULL;
     gamepad = SDL_JoystickOpen(0);
-    if (!gamepad) return FAILURE;
+    /* NOTE: Don't fail here. Just produce a flag and continue */
   }
 
   /* loading game resources */
@@ -193,10 +196,9 @@ main(int argc, char** argv) {
   {
     SDL_Rect chimmy, clip;
     SDL_Event event;
-    u8 world_index = 0;
+    u8 world_index = WORLD_GUERNICA;
     r32 x = 0, y = 0;
     r32 movespeed = 0.2;
-    struct rgb bg_col = rgb_unpack(worlds[world_index].bg_col);
     u32 frame_count = 0;
     u32 fps = 0;
     u32 fps_timer = SDL_GetTicks();
@@ -215,44 +217,6 @@ main(int argc, char** argv) {
       SDL_PollEvent(&event);
       switch (event.type) {
         case SDL_QUIT: { goto defer; }break;
-        case SDL_JOYBUTTONDOWN: {
-          /*
-           * NOTE: this input method has some issues. particularly the fact that it will input
-           * multiple instances of the same button press for a slight tap.
-           * in some cases this is a good thing, in other areas it can be a source of issues.
-           */
-          switch (event.jbutton.button) {
-            case GP2X_BUTTON_START: { goto defer; }break;
-            case GP2X_BUTTON_UP: { y -= movespeed; }break;
-            case GP2X_BUTTON_UPLEFT: { y -= movespeed; x -= movespeed; }break;
-            case GP2X_BUTTON_LEFT: { x -= movespeed; }break;
-            case GP2X_BUTTON_DOWNLEFT: { y += movespeed; x -= movespeed; }break;
-            case GP2X_BUTTON_DOWN: { y += movespeed; }break;
-            case GP2X_BUTTON_DOWNRIGHT: { y += movespeed; x += movespeed; }break;
-            case GP2X_BUTTON_RIGHT: { x += movespeed; }break;
-            case GP2X_BUTTON_UPRIGHT: { y -= movespeed; x += movespeed; }break;
-            case GP2X_BUTTON_A: { scaling_method = SURFACE_SCALE_PROGRESSIVE; }break;
-            case GP2X_BUTTON_Y: { scaling_method = SURFACE_SCALE_PROGRESSIVE2; }break;
-            case GP2X_BUTTON_X: { scaling_method = SURFACE_SCALE_INTERLACED; }break;
-            case GP2X_BUTTON_B: { scaling_method = SURFACE_SCALE_INTERLACED2; }break;
-            case GP2X_BUTTON_L: {
-              if (world_index == WORLD_START) {
-                world_index = WORLD_END;
-                bg_col = rgb_unpack(worlds[world_index].bg_col);
-              }
-            }break;
-            case GP2X_BUTTON_R: {
-              if (world_index != WORLD_END) {
-                world_index++;
-                bg_col = rgb_unpack(worlds[world_index].bg_col);
-              }
-            }break;
-            InvalidDefaultCase;
-          }
-         }break;
-         case SDL_JOYBUTTONUP: {
-           InvalidDefaultCase;
-         }break;
       }
       chimmy.x = x;
       chimmy.y = y;
@@ -261,8 +225,8 @@ main(int argc, char** argv) {
        * you can create some interesting motion blur style effects.
        */
       memset(screen->pixels, 0, screen->h * screen->pitch);
-      SDL_FillRect(backbuffer, NULL,
-                   SDL_MapRGB(backbuffer->format, bg_col.r, bg_col.g, bg_col.b));
+      memset(backbuffer->pixels, worlds[world_index].bg_col, backbuffer->h * backbuffer->pitch);
+
       {
         i32 index;
         struct renderable* iter = worlds[world_index].entities;
@@ -297,16 +261,12 @@ main(int argc, char** argv) {
       /* update every second? */
       if (SDL_GetTicks() - update_timer > 1000) {
         fps = frame_count / ((SDL_GetTicks() - fps_timer) / 1000);
+        printf("FPS: %i\n", fps);
         update_timer = SDL_GetTicks();
       }
     }
   }
 
-/*
- * Typically programs on desktop operating systems, memory is freed on application exit.
- * I'm currently assuming applications closing on the Wiz would be handled the same way.
- * My thought process for this is that the handheld is in essence running on GNU/Linux.
- */
 defer:
   return SUCCESS;
 }

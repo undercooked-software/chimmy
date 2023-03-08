@@ -1,4 +1,8 @@
+#!/bin/sh
+
 GAME_DIR=/mnt/game/chimmy
-sudo cp ./build/wiz/* $GAME_DIR
-sudo cp -r ./data $GAME_DIR
-sudo cp ./lib/wiz/libSDL-1.2.so.0 $GAME_DIR
+if [ ! -e "$GAME_DIR" ]; then
+  sudo mkdir $GAME_DIR
+fi
+sudo cp -r ./build/wiz/* $GAME_DIR
+sudo mv $GAME_DIR/_chimmy.ini /mnt/game
