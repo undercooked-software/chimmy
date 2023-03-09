@@ -102,8 +102,8 @@ main(int argc, char** argv) {
   display.w = BACKBUFFER_WIDTH * display.scale;
   display.h = BACKBUFFER_HEIGHT * display.scale;
 
-  /* setenv("SDL_VIDEO_WAYLAND_WMCLASS", "com.example.chimmy", 0); */
-  /* setenv("SDL_VIDEO_X11_WMCLASS", "com.example.chimmy", 0); */
+  /* setenv("SDL_VIDEO_WAYLAND_WMCLASS", WM_CLASS, 0); */
+  /* setenv("SDL_VIDEO_X11_WMCLASS", WM_CLASS, 0); */
 
   flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK;
   {
@@ -203,9 +203,11 @@ main(int argc, char** argv) {
   {
     SDL_Rect chimmy, clip;
     SDL_Event event;
-    u8 world_index = WORLD_GUERNICA;
+    u8 world_index = WORLD_START;
     r32 x = 0, y = 0;
-    r32 movespeed = 0.2;
+    r32 vel_x = 0, vel_y = 0;
+    r32 move_speed = 0.2;
+    struct rgb bg_col = rgb_unpack(worlds[world_index].bg_col);
     u32 frame_count = 0;
     u32 fps = 0;
     u32 fps_timer = SDL_GetTicks();
@@ -221,19 +223,70 @@ main(int argc, char** argv) {
     x = chimmy.x;
     y = chimmy.y;
     for (;;) {
-      SDL_PollEvent(&event);
-      switch (event.type) {
-        case SDL_QUIT: { goto defer; }break;
+      while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+          case SDL_QUIT: { goto defer; }break;
+          case SDL_KEYDOWN: {
+            switch (event.key.keysym.sym) {
+              case SDLK_ESCAPE: { goto defer; }break;
+              case SDLK_w: { vel_y -= move_speed; }break;
+              case SDLK_s: { vel_y += move_speed; }break;
+              case SDLK_a: { vel_x -= move_speed; }break;
+              case SDLK_d: { vel_x += move_speed; }break;
+              case SDLK_q: {
+                if (world_index == WORLD_START) { world_index = WORLD_END; }
+                else { world_index--; }
+                bg_col = rgb_unpack(worlds[world_index].bg_col);
+              }break;
+              case SDLK_e: {
+                if (world_index != WORLD_END) { world_index++; }
+                bg_col = rgb_unpack(worlds[world_index].bg_col);
+              }break;
+              InvalidDefaultCase;
+            };
+          }break;
+          case SDL_KEYUP: {
+            switch (event.key.keysym.sym) {
+              case SDLK_w: { vel_y += move_speed; }break;
+              case SDLK_s: { vel_y -= move_speed; }break;
+              case SDLK_a: { vel_x += move_speed; }break;
+              case SDLK_d: { vel_x -= move_speed; }break;
+              InvalidDefaultCase;
+            };
+          }break;
+        }
       }
+
+      x += vel_x;
+      y += vel_y;
+
+      if (y <= 0) { y = 0; }
+      if (y + clip.h >= BACKBUFFER_HEIGHT) { y = (BACKBUFFER_HEIGHT - clip.h); }
+      if (world_index == WORLD_START) {
+        if (x + clip.w <= 0) {
+          world_index = WORLD_END;
+          bg_col = rgb_unpack(worlds[world_index].bg_col);
+          x = BACKBUFFER_WIDTH - clip.w;
+        }
+      } else {
+        if (x <= 0) { x = 0; }
+      }
+      if (x - clip.x >= BACKBUFFER_WIDTH) {
+        world_index++;
+        bg_col = rgb_unpack(worlds[world_index].bg_col);
+        x = 0;
+      }
+
       chimmy.x = x;
       chimmy.y = y;
+
       /*
        * NOTE: if you clear the backbuffer instead of the screen, while in interlaced scale mode
        * you can create some interesting motion blur style effects.
        */
       memset(display.screen->pixels, 0, display.screen->h * display.screen->pitch);
-      memset(display.backbuffer->pixels, worlds[world_index].bg_col,
-             display.backbuffer->h * display.backbuffer->pitch);
+      SDL_FillRect(display.backbuffer, NULL,
+                   SDL_MapRGB(display.backbuffer->format, bg_col.r, bg_col.g, bg_col.b));
 
       {
         i32 index;
@@ -270,6 +323,7 @@ main(int argc, char** argv) {
       if (SDL_GetTicks() - update_timer > 1000) {
         fps = frame_count / ((SDL_GetTicks() - fps_timer) / 1000);
         printf("FPS: %i\n", fps);
+        printf("world index: %i\n", world_index);
         update_timer = SDL_GetTicks();
       }
     }

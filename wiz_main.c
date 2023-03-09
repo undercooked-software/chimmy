@@ -179,7 +179,6 @@ main(int argc, char** argv) {
     world_guernica_entities[2].clip.h = 40;
   }
 
-
   /* construct the maps */
   worlds[WORLD_START].bg_col = CLOUD;
   worlds[WORLD_START].entities = world_start_entities;
@@ -199,7 +198,8 @@ main(int argc, char** argv) {
     SDL_Event event;
     u8 world_index = 0;
     r32 x = 0, y = 0;
-    r32 movespeed = 0.2;
+    r32 vel_x = 0, vel_y = 0;
+    r32 move_speed = 0.2;
     struct rgb bg_col = rgb_unpack(worlds[world_index].bg_col);
     u32 frame_count = 0;
     u32 fps = 0;
@@ -216,48 +216,74 @@ main(int argc, char** argv) {
     x = chimmy.x;
     y = chimmy.y;
     for (;;) {
-      SDL_PollEvent(&event);
-      switch (event.type) {
-        case SDL_QUIT: { goto defer; }break;
-        case SDL_JOYBUTTONDOWN: {
-          /*
-           * NOTE: this input method has some issues. particularly the fact that it will input
-           * multiple instances of the same button press for a slight tap.
-           * in some cases this is a good thing, in other areas it can be a source of issues.
-           */
-          switch (event.jbutton.button) {
-            case GP2X_BUTTON_START: { goto defer; }break;
-            case GP2X_BUTTON_UP: { y -= movespeed; }break;
-            case GP2X_BUTTON_UPLEFT: { y -= movespeed; x -= movespeed; }break;
-            case GP2X_BUTTON_LEFT: { x -= movespeed; }break;
-            case GP2X_BUTTON_DOWNLEFT: { y += movespeed; x -= movespeed; }break;
-            case GP2X_BUTTON_DOWN: { y += movespeed; }break;
-            case GP2X_BUTTON_DOWNRIGHT: { y += movespeed; x += movespeed; }break;
-            case GP2X_BUTTON_RIGHT: { x += movespeed; }break;
-            case GP2X_BUTTON_UPRIGHT: { y -= movespeed; x += movespeed; }break;
-            case GP2X_BUTTON_A: { scaling_method = SURFACE_SCALE_PROGRESSIVE; }break;
-            case GP2X_BUTTON_Y: { scaling_method = SURFACE_SCALE_PROGRESSIVE2; }break;
-            case GP2X_BUTTON_X: { scaling_method = SURFACE_SCALE_INTERLACED; }break;
-            case GP2X_BUTTON_B: { scaling_method = SURFACE_SCALE_INTERLACED2; }break;
-            case GP2X_BUTTON_L: {
-              if (world_index == WORLD_START) {
-                world_index = WORLD_END;
-                bg_col = rgb_unpack(worlds[world_index].bg_col);
-              }
-            }break;
-            case GP2X_BUTTON_R: {
-              if (world_index != WORLD_END) {
-                world_index++;
-                bg_col = rgb_unpack(worlds[world_index].bg_col);
-              }
-            }break;
-            InvalidDefaultCase;
-          }
-         }break;
-         case SDL_JOYBUTTONUP: {
-           InvalidDefaultCase;
-         }break;
+      while(SDL_PollEvent(&event)) {
+        switch (event.type) {
+          case SDL_QUIT: { goto defer; }break;
+          case SDL_JOYBUTTONDOWN: {
+            switch (event.jbutton.button) {
+              case GP2X_BUTTON_START: { goto defer; }break;
+              case GP2X_BUTTON_UP: { vel_y -= move_speed; }break;
+              case GP2X_BUTTON_UPLEFT: { vel_y -= move_speed; vel_x -= move_speed; }break;
+              case GP2X_BUTTON_LEFT: { vel_x -= move_speed; }break;
+              case GP2X_BUTTON_DOWNLEFT: { vel_y += move_speed; vel_x -= move_speed; }break;
+              case GP2X_BUTTON_DOWN: { vel_y += move_speed; }break;
+              case GP2X_BUTTON_DOWNRIGHT: { vel_y += move_speed; vel_x += move_speed; }break;
+              case GP2X_BUTTON_RIGHT: { vel_x += move_speed; }break;
+              case GP2X_BUTTON_UPRIGHT: { vel_y -= move_speed; vel_x += move_speed; }break;
+              case GP2X_BUTTON_A: { scaling_method = SURFACE_SCALE_PROGRESSIVE; }break;
+              case GP2X_BUTTON_Y: { scaling_method = SURFACE_SCALE_PROGRESSIVE2; }break;
+              case GP2X_BUTTON_X: { scaling_method = SURFACE_SCALE_INTERLACED; }break;
+              case GP2X_BUTTON_B: { scaling_method = SURFACE_SCALE_INTERLACED2; }break;
+              case GP2X_BUTTON_L: {
+                if (world_index == WORLD_START) {
+                  world_index = WORLD_END;
+                  bg_col = rgb_unpack(worlds[world_index].bg_col);
+                }
+              }break;
+              case GP2X_BUTTON_R: {
+                if (world_index != WORLD_END) {
+                  world_index++;
+                  bg_col = rgb_unpack(worlds[world_index].bg_col);
+                }
+              }break;
+              InvalidDefaultCase;
+            }
+          }break;
+          case SDL_JOYBUTTONUP: {
+            switch (event.jbutton.button) {
+              case GP2X_BUTTON_UP: { vel_y += move_speed; }break;
+              case GP2X_BUTTON_UPLEFT: { vel_y += move_speed; vel_x += move_speed; }break;
+              case GP2X_BUTTON_LEFT: { vel_x += move_speed; }break;
+              case GP2X_BUTTON_DOWNLEFT: { vel_y -= move_speed; vel_x += move_speed; }break;
+              case GP2X_BUTTON_DOWN: { vel_y -= move_speed; }break;
+              case GP2X_BUTTON_DOWNRIGHT: { vel_y -= move_speed; vel_x -= move_speed; }break;
+              case GP2X_BUTTON_RIGHT: { vel_x -= move_speed; }break;
+              case GP2X_BUTTON_UPRIGHT: { vel_y += move_speed; vel_x -= move_speed; }break;
+              InvalidDefaultCase;
+            }
+          }break;
+        }
       }
+      x += vel_x;
+      y += vel_y;
+
+      if (y <= 0) { y = 0; }
+      if (y + clip.h >= BACKBUFFER_HEIGHT) { y = (BACKBUFFER_HEIGHT - clip.h); }
+      if (world_index == WORLD_START) {
+        if (x + clip.w <= 0) {
+          world_index = WORLD_END;
+          bg_col = rgb_unpack(worlds[world_index].bg_col);
+          x = BACKBUFFER_WIDTH - clip.w;
+        }
+      } else {
+        if (x <= 0) { x = 0; }
+      }
+      if (x - clip.x >= BACKBUFFER_WIDTH) {
+        world_index++;
+        bg_col = rgb_unpack(worlds[world_index].bg_col);
+        x = 0;
+      }
+
       chimmy.x = x;
       chimmy.y = y;
       /*
