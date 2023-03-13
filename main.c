@@ -68,6 +68,12 @@ struct renderable {
   SDL_Rect clip;          /* ?? */
 };
 
+void
+move_entity(struct renderable* entity, r32 vel_x, r32 vel_y, r64 dt) {
+  entity->src.x = vel_x;
+  entity->src.y = vel_y;
+}
+
 enum {
   WORLD_START,
   WORLD_GUERNICA,
@@ -187,7 +193,7 @@ main(int argc, char** argv) {
 
 
   /* construct the maps */
-  worlds[WORLD_START].bg_col = CLOUD;
+  worlds[WORLD_START].bg_col = AO;
   worlds[WORLD_START].entities = world_start_entities;
   worlds[WORLD_START].entity_count = 0;
   worlds[WORLD_GUERNICA].bg_col = BLACK;
@@ -201,28 +207,37 @@ main(int argc, char** argv) {
   worlds[WORLD_END].entity_count = 0;
 
   {
-    SDL_Rect chimmy, clip;
     SDL_Event event;
+    struct renderable chimmy;
     u8 world_index = WORLD_START;
-    r32 x = 0, y = 0;
-    r32 vel_x = 0, vel_y = 0;
-    r32 move_speed = 0.2;
+    r32 x = 0.f, y = 0.f;
+    r32 vel_x = 0.f, vel_y = 0.f;
+    r32 move_speed = 0.05f;
     struct rgb bg_col = rgb_unpack(worlds[world_index].bg_col);
     u32 frame_count = 0;
     u32 fps = 0;
     u32 fps_timer = SDL_GetTicks();
     u32 update_timer = SDL_GetTicks();
+    u32 NOW = 0, LAST = 0;
+    r32 dt = 0.f;
 
-    clip.x = clip.y = 0;
-    clip.w = clip.h = 16;
-    chimmy.w = texture[BITMAP_CHIMMY]->w;
-    chimmy.h = texture[BITMAP_CHIMMY]->h;
-    chimmy.x = (BACKBUFFER_WIDTH / 4);
-    chimmy.y = (BACKBUFFER_HEIGHT / 2) - (clip.h / 2);
+    chimmy.is_textured = TRUE;
+    chimmy.data.texture.id = BITMAP_CHIMMY;
+    chimmy.clip.x = chimmy.clip.y = 0;
+    chimmy.clip.w = chimmy.clip.h = 16;
+    chimmy.src.w = texture[BITMAP_CHIMMY]->w;
+    chimmy.src.h = texture[BITMAP_CHIMMY]->h;
+    chimmy.src.x = (BACKBUFFER_WIDTH / 4);
+    chimmy.src.y = (BACKBUFFER_HEIGHT / 2) - (chimmy.clip.h / 2);
 
-    x = chimmy.x;
-    y = chimmy.y;
+    x = chimmy.src.x;
+    y = chimmy.src.y;
+
     for (;;) {
+      LAST = NOW;
+      NOW = SDL_GetTicks();
+      dt = (NOW - LAST);
+
       while (SDL_PollEvent(&event)) {
         switch (event.type) {
           case SDL_QUIT: { goto defer; }break;
@@ -257,28 +272,32 @@ main(int argc, char** argv) {
         }
       }
 
-      x += vel_x;
-      y += vel_y;
+      x += vel_x * dt;
+      y += vel_y * dt;
 
-      if (y <= 0) { y = 0; }
-      if (y + clip.h >= BACKBUFFER_HEIGHT) { y = (BACKBUFFER_HEIGHT - clip.h); }
+      if (y <= 0) {
+        y = 0;
+      } else if (y + chimmy.clip.h >= BACKBUFFER_HEIGHT) {
+        y = (BACKBUFFER_HEIGHT - chimmy.clip.h);
+      }
+
       if (world_index == WORLD_START) {
-        if (x + clip.w <= 0) {
+        if (x + chimmy.clip.w <= 0) {
           world_index = WORLD_END;
           bg_col = rgb_unpack(worlds[world_index].bg_col);
-          x = BACKBUFFER_WIDTH - clip.w;
+          x = BACKBUFFER_WIDTH - chimmy.clip.w;
         }
       } else {
         if (x <= 0) { x = 0; }
       }
-      if (x - clip.x >= BACKBUFFER_WIDTH) {
+
+      if (x - chimmy.clip.x >= BACKBUFFER_WIDTH) {
         world_index++;
         bg_col = rgb_unpack(worlds[world_index].bg_col);
         x = 0;
       }
 
-      chimmy.x = x;
-      chimmy.y = y;
+      move_entity(&chimmy, x, y, dt);
 
       /*
        * NOTE: if you clear the backbuffer instead of the screen, while in interlaced scale mode
@@ -299,7 +318,7 @@ main(int argc, char** argv) {
         }
       }
 
-      SDL_BlitSurface(texture[BITMAP_CHIMMY], &clip, display.backbuffer, &chimmy);
+      SDL_BlitSurface(texture[chimmy.data.texture.id], &chimmy.clip, display.backbuffer, &chimmy.src);
 
       switch (scaling_method) {
         case SURFACE_SCALE_PROGRESSIVE:{
@@ -323,9 +342,10 @@ main(int argc, char** argv) {
       if (SDL_GetTicks() - update_timer > 1000) {
         fps = frame_count / ((SDL_GetTicks() - fps_timer) / 1000);
         printf("FPS: %i\n", fps);
-        printf("world index: %i\n", world_index);
         update_timer = SDL_GetTicks();
       }
+
+      SDL_Delay(1); /* We should properly cap the FPS */
     }
   }
 
