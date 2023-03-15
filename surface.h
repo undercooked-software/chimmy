@@ -18,4 +18,6 @@ enum {
   SURFACE_SCALE_INTERLACED2
 };
 
+internal void surface_progressive_scale(SDL_Surface*, SDL_Surface*, u32);
+
 #endif /* SURFACE_H */

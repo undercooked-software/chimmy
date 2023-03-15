@@ -41,8 +41,30 @@ bmp_trans_load(const char* filename, u32 color, enum bmp_load_type loader) {
   return bmp;
 }
 
+internal SDL_Surface*
+bmp_scale(SDL_Surface* texture, u32 color, u32 scale) {
+  SDL_Surface* scaled_texture;
+  {
+    u32 w, h;
+    SDL_PixelFormat* fmt = texture->format;
+    w = texture->w * scale;
+    h = texture->h * scale;
+    scaled_texture =
+      SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, fmt->BitsPerPixel,
+                           fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
+    surface_progressive_scale(texture, scaled_texture, scale);
+    {
+      struct rgb unpacked = rgb_unpack(color);
+      u32 key = SDL_MapRGB(scaled_texture->format, unpacked.r, unpacked.g, unpacked.b);
+      SDL_SetColorKey(scaled_texture, SDL_SRCCOLORKEY, key);
+    }
+  }
+
+  return scaled_texture;
+}
+
 internal void
-surface_interlaced_scale(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale) {
+surface_interlaced_scale(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scale) {
   i32 x, y, i;
   PIXEL* screen_pixels      = (PIXEL*)screen->pixels;
   PIXEL* backbuffer_pixels  = (PIXEL*)backbuffer->pixels;
@@ -57,7 +79,7 @@ surface_interlaced_scale(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale
 }
 
 internal void
-surface_interlaced_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale) {
+surface_interlaced_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scale) {
   /*
    * Counterpillow's clean implementation, modified for interlaced scale
    * Currently performs better than mine based on our current FPS margins!
@@ -74,7 +96,7 @@ surface_interlaced_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scal
 }
 
 internal void
-surface_progressive_scale(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale) {
+surface_progressive_scale(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scale) {
   /* This is very consistent when measured via FPS? */
   i32 x, y, i;
   SDL_Surface* line;
@@ -109,7 +131,7 @@ surface_progressive_scale(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scal
 }
 
 internal void
-surface_progressive_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, i32 scale) {
+surface_progressive_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scale) {
   /*
    * Counterpillow's clean implementation
    * I like the way it's done, but it seems to be less performant for some reason?

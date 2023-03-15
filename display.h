@@ -6,6 +6,7 @@
 
 struct display {
   SDL_Surface* screen;
+  SDL_Surface* screen_backbuffer;
   SDL_Surface* backbuffer;
   u16 w, h;
   u8 scale;
