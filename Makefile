@@ -3,14 +3,14 @@ include config.mk
 all: x86_64 wiz
 
 x86_64: main.c
-	mkdir -p ${LINUX_DIR}
+	@mkdir -p ${LINUX_DIR}
 	@echo '***********  BUILDING x86_64  ***********'
 	${CC} ${CFLAGS} `sdl-config --cflags` ${MOLD} -DTARGET_X86_64 $< -o ${LINUX_DIR}/${BIN} `sdl-config --libs`
 
 wiz: wiz_main.c
-	mkdir -p ${OPEN2X_DIR}
+	@mkdir -p ${OPEN2X_DIR}
 	@echo '*********** BUILDING GP2X-WIZ ***********'
-	${OPEN2X} ${CFLAGS} -I./SDL-1.2.13/include -DTARGET_WIZ $< -o ${OPEN2X_DIR}/${OPEN2X_BIN} -L/opt/arm-openwiz-linux-gnu/lib -L./lib/wiz -lSDL
+	${OPEN2X} ${CFLAGS} `${OPEN2X_SDL} --cflags` -DTARGET_WIZ $< -o ${OPEN2X_DIR}/${OPEN2X_BIN} `${OPEN2X_SDL} --libs`
 
 clean:
 	rm -f ${LINUX_DIR}/${BIN}

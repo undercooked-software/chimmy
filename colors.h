@@ -37,4 +37,6 @@ struct rgb {
   u8 unused;
 }; /* 4byte */
 
+internal struct rgb rgb_unpack(u32 color);
+
 #endif /* COLORS_H */

@@ -7,6 +7,7 @@ BIN=game
 OPEN2X_BIN=${BIN}.gpe
 
 # includes and libs
+OPEN2X_SDL=/opt/arm-openwiz-linux-gnu/bin/sdl-config
 
 # flags
 #CFLAGS=-g -ansi -pedantic -Wall
