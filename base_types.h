@@ -6,6 +6,7 @@
 #define global        static
 #define internal      static
 #define local_persist static
+#define external extern "C"
 
 typedef int8_t    i8;
 typedef int16_t   i16;
@@ -21,6 +22,7 @@ typedef i32       b32;
 typedef float     r32;
 typedef double    r64;
 
+/* NOTE: https://www.geeksforgeeks.org/using-sizof-operator-with-array-paratmeters/ */
 #define ArraySize(Array) (sizeof(Array) / sizeof((Array)[0]))
 
 #define Stringify_(s) #s
@@ -30,4 +32,7 @@ typedef double    r64;
 
 #define InvalidDefaultCase default:{}break
 
-#endif
+enum { FALSE, TRUE };
+enum { FAILURE = -1, SUCCESS };
+
+#endif /* BASE_TYPES_H */

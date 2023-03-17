@@ -1,7 +1,7 @@
 #ifndef SURFACE_H
 #define SURFACE_H
 
-#include <SDL/SDL.h>
+#include <SDL.h>
 #include "base_types.h"
 #include "colors.h"
 #include "internals.h"
@@ -13,7 +13,7 @@ enum bmp_load_type {
 
 enum {
   SURFACE_SCALE_PROGRESSIVE
-  /* SURFACE_SCALE_PROGRESSIVE2, */
+  /* SURFACE_SCALE_PROGRESSIVE2 */
   /* SURFACE_SCALE_INTERLACED, */
   /* SURFACE_SCALE_INTERLACED2 */
 };
