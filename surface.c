@@ -55,6 +55,7 @@ bmp_scale(SDL_Surface* texture, u32 color, u32 scale) {
     }
   }
 
+  SDL_FreeSurface(texture);
   return scaled_texture;
 }
 

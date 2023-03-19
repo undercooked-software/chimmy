@@ -1,7 +1,7 @@
 #ifndef SURFACE_H
 #define SURFACE_H
 
-#include <SDL.h>
+#include <SDL_video.h>
 #include "base_types.h"
 #include "colors.h"
 #include "internals.h"

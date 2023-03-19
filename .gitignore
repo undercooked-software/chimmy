@@ -1,15 +1,8 @@
-.envrc
-*.rdbg
-*.dll
 *.DS_Store
 
 ## Clang output files (mac)
-*.opt
 
 ## MSVC output files (windows)
-*.obj
-*.pdb
-*.exe
 
 ## Directories
 /build

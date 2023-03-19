@@ -1,5 +1,3 @@
-
-#./cpufreq --freq 700 # change clock speed of game in MHz
 ./game.gpe    # run game
 
 cd /usr/gp2x/ # relaunch Wiz main menu

@@ -2,4 +2,6 @@
 
 pushd build/linux
 ./game
+# valgrind --tool=massif ./game
+# valgrind --leak-check=full ./game
 popd
