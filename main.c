@@ -1,19 +1,17 @@
-#include <SDL/SDL.h>
-#include <SDL/SDL_video.h>
-#include <string.h>
+#include <stdio.h>  /* sprintf */
+#include <string.h> /* memset */
+#include <SDL.h>
+#include <SDL_video.h>
 
 #include "base_types.h"
 #include "colors.h"
-#include "internals.h"
 #include "display.h"
+#include "internals.h"
 #include "surface.h"
-#include "buttons.h"
 
 #include "colors.c"
 #include "surface.c"
-
-enum { FALSE, TRUE };
-enum { FAILURE = -1, SUCCESS };
+#include "SDL_text.c"
 
 enum {
   BITMAP_SMALLFONT,
@@ -56,8 +54,7 @@ enum {
 struct tex_data {
   u8 id;
   u8 anim;
-  u8 unused[2];
-}; /* 4byte */
+};
 
 struct renderable {
   b32 is_textured;        /* 4byte */
@@ -78,7 +75,6 @@ struct entity {
   r32 x, y;               /* 8byte */
   SDL_Rect src;           /* 8byte */
   SDL_Rect clip;          /* 8byte */
-  SDL_Rect crop_rect;     /* 8byte */
 };
 
 enum {
@@ -133,18 +129,20 @@ entity_move(struct entity* e, struct display* display, r32 vx, r32 vy, r64 dt) {
   e->src.y = e->y + 0.5;
 }
 
+global SDL_Rect crop_rect;
+
 SDL_Rect*
 entity_calculate_crop_bounds(struct entity* entity) {
   /* NOTE: I hate the way the texture width is stored */
   i32 texture_width = texture[entity->data.texture.id]->w;
   i32 texture_frame_width = texture_width / entity->clip.w;
 
-  entity->crop_rect.x = (entity->data.texture.anim % texture_frame_width) * entity->clip.w;
-  entity->crop_rect.y = (entity->data.texture.anim / texture_frame_width) * entity->clip.h;
-  entity->crop_rect.w = entity->clip.w;
-  entity->crop_rect.h = entity->clip.h;
+  crop_rect.x = (entity->data.texture.anim % texture_frame_width) * entity->clip.w;
+  crop_rect.y = (entity->data.texture.anim / texture_frame_width) * entity->clip.h;
+  crop_rect.w = entity->clip.w;
+  crop_rect.h = entity->clip.h;
 
-  return &entity->crop_rect;
+  return &crop_rect;
 }
 
 enum {
@@ -174,11 +172,23 @@ struct world {
 
 global struct world worlds[WORLD_COUNT];
 
+u32 average(u32* vals, u32 count) {
+  u64 accumulator = 0;
+  i32 i;
+  for (i = 0; i < count; ++i) { accumulator += vals[i]; }
+  return accumulator / count;
+}
+
+u32 fill_color(SDL_PixelFormat* fmt, u32 color) {
+  struct rgb unpacked;
+  unpacked = rgb_unpack(color);
+  return SDL_MapRGB(fmt, unpacked.r, unpacked.g, unpacked.b);
+}
+
 int
 main(int argc, char** argv) {
   struct display display;
   u32 flags = 0;
-  u32 scaling_method = SURFACE_SCALE_PROGRESSIVE;
 
   display.scale = 4;
   display.w = BACKBUFFER_WIDTH * display.scale;
@@ -193,6 +203,7 @@ main(int argc, char** argv) {
     u32 init_success = SDL_InitSubSystem(flags);
     if (init_success != 0) return FAILURE;
   }
+
   /* disable cursor before screen comes into play so that wiz doesn't show it at all */
   SDL_ShowCursor(SDL_DISABLE);
 
@@ -205,18 +216,16 @@ main(int argc, char** argv) {
   {
     SDL_PixelFormat* fmt = display.screen->format;
     display.backbuffer =
-      SDL_CreateRGBSurface(SDL_SWSURFACE, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT, SCREEN_DEPTH,
+      SDL_CreateRGBSurface(SDL_SWSURFACE, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT, fmt->BitsPerPixel,
                            fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
     if (!display.backbuffer) return FAILURE;
-    display.screen_backbuffer =
-      SDL_CreateRGBSurface(SDL_SWSURFACE, display.w, display.h, SCREEN_DEPTH,
-                           fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
-    if (!display.screen_backbuffer) return FAILURE;
   }
   { /* initialize joystick - wiz only? */
     SDL_Joystick* gamepad = NULL;
     gamepad = SDL_JoystickOpen(0);
-    /* NOTE: Don't fail here. Just produce a flag and continue */
+    if (!gamepad) {
+      /* NOTE: Don't fail here. Just produce a flag and continue */
+    }
   }
 
   /* loading game resources */
@@ -230,7 +239,12 @@ main(int argc, char** argv) {
   texture[BITMAP_DRAGON]        = bmp_trans_load("data/image/dragon.bmp", MAGENTA, LOAD_BITMAP_PREOPTIMIZED);
 
   if (display.scale > 1) {
-    texture[BITMAP_CHIMMY]      = bmp_scale(texture[BITMAP_CHIMMY], MAGENTA, display.scale);
+    texture[BITMAP_SMALLFONT]     = bmp_scale(texture[BITMAP_SMALLFONT], MAGENTA, display.scale);
+    texture[BITMAP_CHIMMY]        = bmp_scale(texture[BITMAP_CHIMMY], MAGENTA, display.scale);
+    texture[BITMAP_INTERACTABLES] = bmp_scale(texture[BITMAP_INTERACTABLES], MAGENTA, display.scale);
+    texture[BITMAP_KNIGHT]        = bmp_scale(texture[BITMAP_KNIGHT], MAGENTA, display.scale);
+    texture[BITMAP_HORSEMAN]      = bmp_scale(texture[BITMAP_HORSEMAN], MAGENTA, display.scale);
+    texture[BITMAP_DRAGON]        = bmp_scale(texture[BITMAP_DRAGON], MAGENTA, display.scale);
   }
 
   {
@@ -313,7 +327,6 @@ main(int argc, char** argv) {
     world_guernica_entities[2].clip.h = 40;
   }
 
-
   /* construct the maps */
   worlds[WORLD_START].bg_col = AO;
   worlds[WORLD_START].entities = world_start_entities;
@@ -337,17 +350,38 @@ main(int argc, char** argv) {
   {
     SDL_Event event;
     struct entity chimmy;
+    struct FontDefinition fd;
+    char str[10];
     u8 world_index = WORLD_START;
     r32 vx = 0.f, vy = 0.f;
     u32 move_speed = 40.f * display.scale;
-    struct rgb bg_col = rgb_unpack(worlds[world_index].bg_col);
-    /* r32 target_seconds_per_frame = 1.f / 60; */
+    u32 bg_col = worlds[world_index].bg_col;
     u32 frame_count = 0;
-    u32 fps = 0;
+    local_persist u32 fps[10];
     u32 fps_timer = SDL_GetTicks();
     u32 update_timer = SDL_GetTicks();
     u32 NOW = 0, LAST = 0;
     r32 dt = 0.f;
+
+    fd.font.data = (void*)texture[BITMAP_SMALLFONT];
+    fd.font.kerning = 1 * display.scale;
+    fd.ascii.range.head = ASCII_SPACE;
+    fd.ascii.range.tail = ASCII_TILDE;
+    { /* consider this as if it was a separate function */
+      i32 i;
+      local_persist SDL_Rect glyphs[ASCII_COUNT];
+      SDL_Surface* texture = (SDL_Surface*)fd.font.data;
+      i32 clip_w = 6 * display.scale;
+      i32 clip_h = 8 * display.scale;
+      i32 glyph_width = texture->w / clip_w;
+      for (i = fd.ascii.range.head; i < fd.ascii.range.tail; ++i) {
+        glyphs[i].x = ((i - fd.ascii.range.head) % glyph_width) * clip_w;
+        glyphs[i].y = ((i - fd.ascii.range.head) / glyph_width) * clip_h;
+        glyphs[i].w = clip_w;
+        glyphs[i].h = clip_h;
+      }
+      fd.glyphs = (void*)&glyphs;
+    }
 
     chimmy.is_textured = TRUE;
     chimmy.data.texture.id = BITMAP_CHIMMY;
@@ -380,11 +414,11 @@ main(int argc, char** argv) {
               case SDLK_q: {
                 if (world_index == WORLD_START) { world_index = WORLD_END; }
                 else { world_index--; }
-                bg_col = rgb_unpack(worlds[world_index].bg_col);
+                bg_col = worlds[world_index].bg_col;
               }break;
               case SDLK_e: {
                 if (world_index != WORLD_END) { world_index++; }
-                bg_col = rgb_unpack(worlds[world_index].bg_col);
+                bg_col = worlds[world_index].bg_col;
               }break;
               InvalidDefaultCase;
             }
@@ -408,9 +442,7 @@ main(int argc, char** argv) {
        * you can create some interesting motion blur style effects.
        */
       memset(display.screen->pixels, 0, display.screen->h * display.screen->pitch);
-      memset(display.screen_backbuffer->pixels, 0, display.screen->h * display.screen->pitch);
-      SDL_FillRect(display.backbuffer, NULL,
-                   SDL_MapRGB(display.backbuffer->format, bg_col.r, bg_col.g, bg_col.b));
+      SDL_FillRect(display.backbuffer, NULL, fill_color(display.backbuffer->format, bg_col));
 
       {
         i32 index;
@@ -420,49 +452,52 @@ main(int argc, char** argv) {
             if (iter->is_textured)
               SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, display.backbuffer, &iter->src);
             else
-              SDL_FillRect(display.backbuffer, &iter->src, iter->data.color);
+              SDL_FillRect(display.backbuffer, &iter->src, fill_color(display.backbuffer->format, iter->data.color));
           }
         }
       }
 
       if (display.scale > 1) {
-        switch (scaling_method) {
-          case SURFACE_SCALE_PROGRESSIVE:{
-            surface_progressive_scale(display.backbuffer, display.screen_backbuffer, display.scale);
-          }break;
-          case SURFACE_SCALE_PROGRESSIVE2:{
-            surface_progressive_scale2(display.backbuffer, display.screen_backbuffer, display.scale);
-          }break;
-          case SURFACE_SCALE_INTERLACED:{
-            surface_interlaced_scale(display.backbuffer, display.screen_backbuffer, display.scale);
-          }break;
-          case SURFACE_SCALE_INTERLACED2:{
-            surface_interlaced_scale2(display.backbuffer, display.screen_backbuffer, display.scale);
-          }break;
-        }
+        surface_progressive_scale(display.backbuffer, display.screen, display.scale);
       } else {
-        SDL_BlitSurface(display.backbuffer, NULL, display.screen_backbuffer, NULL);
+        SDL_BlitSurface(display.backbuffer, NULL, display.screen, NULL);
       }
 
       SDL_BlitSurface(texture[chimmy.data.texture.id],
-                      entity_calculate_crop_bounds(&chimmy), display.screen_backbuffer, &chimmy.src);
+                      entity_calculate_crop_bounds(&chimmy), display.screen, &chimmy.src);
 
-      SDL_BlitSurface(display.screen_backbuffer, NULL, display.screen, NULL);
+      sprintf(str, "FPS:%i", average(fps, 10));
+      SDL_DrawMonospaceText(&fd, display.screen, str, 2, 2);
+
       SDL_Flip(display.screen);
 
       frame_count++;
 
       /* update every second? */
       if (SDL_GetTicks() - update_timer > 1000) {
-        fps = frame_count / ((SDL_GetTicks() - fps_timer) / 1000);
-        printf("FPS: %i\n", fps);
+        i32 i;
+        for (i = 0; i < 9; ++i) { fps[i+1] = fps[i]; }
+        fps[0] = frame_count / ((SDL_GetTicks() - fps_timer) / 1000);
         update_timer = SDL_GetTicks();
+        /* printf("FPS: %i\n", fps[0]); */
       }
 
       SDL_Delay(1); /* We should properly cap the FPS */
     }
   }
 
+/*
+ * Typically programs on desktop operating systems, memory is freed on application exit.
+ * I'm currently assuming applications closing on the Wiz would be handled the same way.
+ * My thought process for this is that the handheld is in essence running on GNU/Linux.
+ */
 defer:
+  {
+    i32 i;
+    for (i = 0; i < BITMAP_COUNT; ++i)
+      SDL_FreeSurface(texture[i]);
+  }
+  SDL_FreeSurface(display.backbuffer);
+  SDL_Quit();
   return SUCCESS;
 }

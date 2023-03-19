@@ -1,5 +1,5 @@
-#ifndef BUTTONS_H
-#define BUTTONS_H
+#ifndef WIZ_BUTTONS_H
+#define WIZ_BUTTONS_H
 
 enum {
 /* d-pad */
@@ -30,4 +30,4 @@ enum {
   GP2X_BUTTON_COUNT = 19
 };
 
-#endif /* BUTTONS_H */
+#endif /* WIZ_BUTTONS_H */

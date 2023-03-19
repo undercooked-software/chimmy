@@ -3,9 +3,9 @@
 internal struct rgb
 rgb_unpack(u32 color) {
   struct rgb unpacked;
-  unpacked.r  = (color & 0x00FF0000) >> 16;
-  unpacked.g  = (color & 0x0000FF00) >> 8;
-  unpacked.b  = (color & 0x000000FF);
+  unpacked.r  = (color & 0xFF0000) >> 16;
+  unpacked.g  = (color & 0x00FF00) >> 8;
+  unpacked.b  = (color & 0x0000FF);
   unpacked.unused = 0;
   return unpacked;
 }
