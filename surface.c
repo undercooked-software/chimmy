@@ -7,10 +7,6 @@
 
 internal SDL_Surface*
 bmp_postopt_load(const char* filename) {
-  /* since the bmp is a 32bit image, it will be a different bpp than the screen.
-   * this means that the texture will be unoptimized by default.
-   * this isn't an issue on PC because we would always be using 32bpp
-   */
   SDL_Surface* optimized_bmp = 0;
   SDL_Surface* raw_bmp = SDL_LoadBMP(filename);
   if (raw_bmp) {

@@ -229,14 +229,14 @@ main(int argc, char** argv) {
   }
 
   /* loading game resources */
-  texture[BITMAP_SMALLFONT]     = bmp_trans_load("data/image/small-font.bmp", MAGENTA, LOAD_BITMAP_PREOPTIMIZED);
-  texture[BITMAP_CHIMMY]        = bmp_trans_load("data/image/chimmy.bmp", MAGENTA, LOAD_BITMAP_PREOPTIMIZED);
-  texture[BITMAP_INTERACTABLES] = bmp_trans_load("data/image/interactables.bmp", MAGENTA, LOAD_BITMAP_PREOPTIMIZED);
-  texture[BITMAP_GUERNICA]      = bmp_load("data/image/guernica.bmp", LOAD_BITMAP_PREOPTIMIZED);
-  texture[BITMAP_KNIGHT]        = bmp_trans_load("data/image/knight.bmp", MAGENTA, LOAD_BITMAP_PREOPTIMIZED);
-  texture[BITMAP_HORSEMAN]      = bmp_trans_load("data/image/horseman.bmp", MAGENTA, LOAD_BITMAP_PREOPTIMIZED);
-  texture[BITMAP_WIP_COWBOY]    = bmp_trans_load("data/image/cowboy.bmp", MAGENTA, LOAD_BITMAP_PREOPTIMIZED);
-  texture[BITMAP_DRAGON]        = bmp_trans_load("data/image/dragon.bmp", MAGENTA, LOAD_BITMAP_PREOPTIMIZED);
+  texture[BITMAP_SMALLFONT]     = bmp_load("data/image/small-font.bmp", LOAD_BITMAP_UNOPTIMIZED);
+  texture[BITMAP_CHIMMY]        = bmp_load("data/image/chimmy.bmp", LOAD_BITMAP_UNOPTIMIZED);
+  texture[BITMAP_INTERACTABLES] = bmp_load("data/image/interactables.bmp", LOAD_BITMAP_UNOPTIMIZED);
+  texture[BITMAP_GUERNICA]      = bmp_load("data/image/guernica.bmp", LOAD_BITMAP_UNOPTIMIZED);
+  texture[BITMAP_KNIGHT]        = bmp_load("data/image/knight.bmp", LOAD_BITMAP_UNOPTIMIZED);
+  texture[BITMAP_HORSEMAN]      = bmp_load("data/image/horseman.bmp", LOAD_BITMAP_UNOPTIMIZED);
+  texture[BITMAP_WIP_COWBOY]    = bmp_load("data/image/cowboy.bmp", LOAD_BITMAP_UNOPTIMIZED);
+  texture[BITMAP_DRAGON]        = bmp_load("data/image/dragon.bmp", LOAD_BITMAP_UNOPTIMIZED);
 
   if (display.scale > 1) {
     texture[BITMAP_SMALLFONT]     = bmp_scale(texture[BITMAP_SMALLFONT], MAGENTA, display.scale);

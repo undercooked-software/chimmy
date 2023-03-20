@@ -20,17 +20,11 @@ dist: dist-x86_64 dist-wiz
 
 dist-x86_64:
 	cp -r data ${LINUX_DIR}
-	cp -r ${LINUX_DIR}/data/image/32/* ${LINUX_DIR}/data/image/
-	rm -rf ${LINUX_DIR}/data/image/32
-	rm -rf ${LINUX_DIR}/data/image/16
 
 dist-wiz:
 	cp _chimmy.ini ${OPEN2X_DIR}
 	cp run.gpe ${OPEN2X_DIR}
 	cp -r data ${OPEN2X_DIR}
 	cp -r lib/wiz/* ${OPEN2X_DIR}
-	cp -r ${OPEN2X_DIR}/data/image/16/* ${OPEN2X_DIR}/data/image/
-	rm -rf ${OPEN2X_DIR}/data/image/32
-	rm -rf ${OPEN2X_DIR}/data/image/16
 
 PHONY: all x86_64 wiz clean dist dist-x86_64 dist-wiz
