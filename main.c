@@ -4,20 +4,23 @@
 #include <SDL_video.h>
 
 #include "base_types.h"
-#include "colors.h"
-#include "display.h"
 #include "internals.h"
-#include "surface.h"
+
+#include "colors.h"
+#include "font.h"
+#include "SDL_display.h"
 
 #include "colors.c"
 #include "surface.c"
 #include "SDL_text.c"
+#include "SDL_QOI.c"
 
 enum {
   BITMAP_SMALLFONT,
   BITMAP_CHIMMY,
   BITMAP_INTERACTABLES,
   BITMAP_TREES,
+  BITMAP_BOAT,
   BITMAP_GUERNICA,
   BITMAP_KNIGHT,
   BITMAP_HORSEMAN,
@@ -40,8 +43,8 @@ enum {
 enum {
   INTERACTABLE_BANANA,
   INTERACTABLE_APPLE,
-  INTERACTABLE_GRAVESTONE, /* not actually interactable. just fitting in the sheet */
-  INTERACTABLE_OCTAGON
+  INTERACTABLE_OCTAGON,
+  INTERACTABLE_GRAVESTONE /* not actually interactable. just fitting in the sheet */
 };
 
 enum {
@@ -57,24 +60,32 @@ struct tex_data {
 };
 
 struct renderable {
-  b32 is_textured;        /* 4byte */
+  b32 is_textured;
   union {
     struct tex_data texture;
     u32 color;
-  } data;                 /* 4byte */
-  SDL_Rect src;           /* 8byte */
-  SDL_Rect clip;          /* 8byte */
+  } data;
+  SDL_Rect src;
+  SDL_Rect clip;
 };
 
 struct entity {
-  b32 is_textured;        /* 4byte */
+  b32 is_textured;
   union {
     struct tex_data texture;
     u32 color;
-  } data;                 /* 4byte */
-  r32 x, y;               /* 8byte */
-  SDL_Rect src;           /* 8byte */
-  SDL_Rect clip;          /* 8byte */
+  } data;
+  r32 x, y;
+  i32 move_speed;
+  SDL_Rect src;
+  SDL_Rect clip;
+
+  void* action_data;
+  void (*action)(struct entity*, r64);
+};
+
+struct line {
+  i32 p1, p2;
 };
 
 enum {
@@ -86,7 +97,7 @@ enum {
 };
 
 i32
-entity_is_in_bounds(struct entity* e, struct display* display) {
+entity_is_in_bounds(struct entity* e, struct SDL_Display* display) {
   i32 collision_side = COLLISION_SIDE_NONE;
 
   if (e->y <= 0) {
@@ -105,7 +116,7 @@ entity_is_in_bounds(struct entity* e, struct display* display) {
 }
 
 void
-entity_move(struct entity* e, struct display* display, r32 vx, r32 vy, r64 dt) {
+entity_move(struct entity* e, struct SDL_Display* display, r32 vx, r32 vy, r64 dt) {
   i32 collision_side = COLLISION_SIDE_NONE;
 
   if (vx == 0 && vy == 0) return;
@@ -155,39 +166,63 @@ enum {
   WORLD_COUNT
 };
 
-#define WORLD_START_ENTITIES (1)
-#define WORLD_HORSEMAN_ENTITIES (1)
-#define WORLD_DOCK_ENTITIES (10)
-#define WORLD_GUERNICA_ENTITIES (3)
-global struct renderable world_start_entities[WORLD_START_ENTITIES];
-global struct renderable world_horseman_entities[WORLD_HORSEMAN_ENTITIES];
-global struct renderable world_guernica_entities[WORLD_GUERNICA_ENTITIES];
-global struct renderable world_dock_entities[WORLD_DOCK_ENTITIES];
+#define WORLD_START_OBJECTS (1)
+global struct renderable world_start_objects[WORLD_START_OBJECTS];
+#define WORLD_HORSEMAN_OBJECTS (1)
+global struct renderable world_horseman_objects[WORLD_HORSEMAN_OBJECTS];
+#define WORLD_GUERNICA_OBJECTS (3)
+global struct renderable world_guernica_objects[WORLD_GUERNICA_OBJECTS];
+#define WORLD_DOCK_OBJECTS (10)
+#define WORLD_DOCK_ENTITIES (1)
+global struct renderable world_dock_objects[WORLD_DOCK_OBJECTS];
+global struct entity world_dock_entities[WORLD_DOCK_ENTITIES];
+#define WORLD_BOSS_ENTITIES (2)
+global struct entity world_boss_entities[WORLD_BOSS_ENTITIES];
 
 struct world {
-  u32 bg_col;                   /* 4byte */
-  struct renderable* entities;  /* 4byte */
-  u8 entity_count;              /* 1byte */
+  u32 bg_col;
+  struct renderable* objects;
+  u8 object_count;
+  struct entity* entities;
+  u8 entity_count;
 };
 
 global struct world worlds[WORLD_COUNT];
 
-u32 average(u32* vals, u32 count) {
+u64
+average(r64* vals, u32 count) {
   u64 accumulator = 0;
   i32 i;
   for (i = 0; i < count; ++i) { accumulator += vals[i]; }
   return accumulator / count;
 }
 
-u32 fill_color(SDL_PixelFormat* fmt, u32 color) {
+u32
+fill_color(SDL_PixelFormat* fmt, u32 color) {
   struct rgb unpacked;
   unpacked = rgb_unpack(color);
   return SDL_MapRGB(fmt, unpacked.r, unpacked.g, unpacked.b);
 }
 
+void
+horizontal_bounds_movement(struct entity* e, r64 dt) {
+  struct line* line = (struct line*)e->action_data;
+
+  e->x += e->move_speed * dt;
+  if (e->x < line->p1) {
+    e->move_speed *= -1;
+    e->x = line->p1;
+  }
+  else if (e->x + e->clip.w > line->p2) {
+    e->move_speed *= -1;
+    e->x = line->p2 - e->clip.w;
+  }
+  e->src.x = e->x;
+}
+
 int
 main(int argc, char** argv) {
-  struct display display;
+  struct SDL_Display display;
   u32 flags = 0;
 
   display.scale = 4;
@@ -229,121 +264,181 @@ main(int argc, char** argv) {
   }
 
   /* loading game resources */
-  texture[BITMAP_SMALLFONT]     = bmp_load("data/image/small-font.bmp", LOAD_BITMAP_UNOPTIMIZED);
-  texture[BITMAP_CHIMMY]        = bmp_load("data/image/chimmy.bmp", LOAD_BITMAP_UNOPTIMIZED);
-  texture[BITMAP_INTERACTABLES] = bmp_load("data/image/interactables.bmp", LOAD_BITMAP_UNOPTIMIZED);
-  texture[BITMAP_GUERNICA]      = bmp_load("data/image/guernica.bmp", LOAD_BITMAP_UNOPTIMIZED);
-  texture[BITMAP_KNIGHT]        = bmp_load("data/image/knight.bmp", LOAD_BITMAP_UNOPTIMIZED);
-  texture[BITMAP_HORSEMAN]      = bmp_load("data/image/horseman.bmp", LOAD_BITMAP_UNOPTIMIZED);
-  texture[BITMAP_WIP_COWBOY]    = bmp_load("data/image/cowboy.bmp", LOAD_BITMAP_UNOPTIMIZED);
-  texture[BITMAP_DRAGON]        = bmp_load("data/image/dragon.bmp", LOAD_BITMAP_UNOPTIMIZED);
+  texture[BITMAP_SMALLFONT]     = SDL_LoadQOI("data/image/small-font.qoi");
+  texture[BITMAP_CHIMMY]        = SDL_LoadQOI("data/image/chimmy.qoi");
+  texture[BITMAP_INTERACTABLES] = SDL_LoadQOI("data/image/interactables.qoi");
+  texture[BITMAP_BOAT]          = SDL_LoadQOI("data/image/boat.qoi");
+  texture[BITMAP_GUERNICA]      = SDL_LoadQOI("data/image/guernica.qoi");
+  texture[BITMAP_KNIGHT]        = SDL_LoadQOI("data/image/knight.qoi");
+  texture[BITMAP_HORSEMAN]      = SDL_LoadQOI("data/image/horseman.qoi");
+  texture[BITMAP_WIP_COWBOY]    = SDL_LoadQOI("data/image/cowboy.qoi");
+  texture[BITMAP_DRAGON]        = SDL_LoadQOI("data/image/dragon.qoi");
 
   if (display.scale > 1) {
-    texture[BITMAP_SMALLFONT]     = bmp_scale(texture[BITMAP_SMALLFONT], MAGENTA, display.scale);
-    texture[BITMAP_CHIMMY]        = bmp_scale(texture[BITMAP_CHIMMY], MAGENTA, display.scale);
-    texture[BITMAP_INTERACTABLES] = bmp_scale(texture[BITMAP_INTERACTABLES], MAGENTA, display.scale);
-    texture[BITMAP_KNIGHT]        = bmp_scale(texture[BITMAP_KNIGHT], MAGENTA, display.scale);
-    texture[BITMAP_HORSEMAN]      = bmp_scale(texture[BITMAP_HORSEMAN], MAGENTA, display.scale);
-    texture[BITMAP_DRAGON]        = bmp_scale(texture[BITMAP_DRAGON], MAGENTA, display.scale);
+    texture[BITMAP_SMALLFONT]     = SDL_ScaleSurface(texture[BITMAP_SMALLFONT], MAGENTA, display.scale);
+    texture[BITMAP_CHIMMY]        = SDL_ScaleSurface(texture[BITMAP_CHIMMY], MAGENTA, display.scale);
+    texture[BITMAP_INTERACTABLES] = SDL_ScaleSurface(texture[BITMAP_INTERACTABLES], MAGENTA, display.scale);
+    texture[BITMAP_BOAT]          = SDL_ScaleSurface(texture[BITMAP_BOAT], MAGENTA, display.scale);
+    texture[BITMAP_KNIGHT]        = SDL_ScaleSurface(texture[BITMAP_KNIGHT], MAGENTA, display.scale);
+    texture[BITMAP_HORSEMAN]      = SDL_ScaleSurface(texture[BITMAP_HORSEMAN], MAGENTA, display.scale);
+    texture[BITMAP_DRAGON]        = SDL_ScaleSurface(texture[BITMAP_DRAGON], MAGENTA, display.scale);
   }
 
   {
-    world_start_entities[0].data.color = MUDDY_BROWN;
-    world_start_entities[0].src.x = 0;
-    world_start_entities[0].src.y = 44;
-    world_start_entities[0].src.w = BACKBUFFER_WIDTH;
-    world_start_entities[0].src.h = 32;
+    world_start_objects[0].data.color = MUDDY_BROWN;
+    world_start_objects[0].src.x = 0;
+    world_start_objects[0].src.y = 44;
+    world_start_objects[0].src.w = BACKBUFFER_WIDTH;
+    world_start_objects[0].src.h = 32;
   }
 
   {
-    world_horseman_entities[0].data.color = DARK_EBONY;
-    world_horseman_entities[0].src.x = 0;
-    world_horseman_entities[0].src.y = 44;
-    world_horseman_entities[0].src.w = BACKBUFFER_WIDTH;
-    world_horseman_entities[0].src.h = 32;
+    world_horseman_objects[0].data.color = DARK_EBONY;
+    world_horseman_objects[0].src.x = 0;
+    world_horseman_objects[0].src.y = 44;
+    world_horseman_objects[0].src.w = BACKBUFFER_WIDTH;
+    world_horseman_objects[0].src.h = 32;
   }
 
   {
-    local_persist i32 entity_count;
-    world_dock_entities[0].data.color = SANDWISP;
-    world_dock_entities[0].src.x = 0;
-    world_dock_entities[0].src.y = 0;
-    world_dock_entities[0].src.w = 32;
-    world_dock_entities[0].src.h = BACKBUFFER_HEIGHT;
-    entity_count++;
+    local_persist i32 object_count;
+    world_dock_objects[0].data.color = SANDWISP;
+    world_dock_objects[0].src.x = 0;
+    world_dock_objects[0].src.y = 0;
+    world_dock_objects[0].src.w = 32;
+    world_dock_objects[0].src.h = BACKBUFFER_HEIGHT;
+    object_count++;
     {
       i32 i;
-      for (i = entity_count; i < entity_count+5; ++i) {
-        world_dock_entities[i].data.color = DARK_EBONY;
-        world_dock_entities[i].src.x = 58 - ((i-1) * 16);
-        world_dock_entities[i].src.y = 44;
-        world_dock_entities[i].src.w = 13;
-        world_dock_entities[i].src.h = 32;
+      for (i = object_count; i < object_count+5; ++i) {
+        world_dock_objects[i].data.color = DARK_EBONY;
+        world_dock_objects[i].src.x = 58 - ((i-1) * 16);
+        world_dock_objects[i].src.y = 44;
+        world_dock_objects[i].src.w = 13;
+        world_dock_objects[i].src.h = 32;
       }
-      entity_count += 5;
-      for (i = entity_count; i < entity_count+4; ++i) {
-        world_dock_entities[i].data.color = DARK_EBONY;
-        world_dock_entities[i].src.x = 54 - ((i-entity_count) * 16);
-        world_dock_entities[i].src.y = 44;
-        world_dock_entities[i].src.w = 3;
-        world_dock_entities[i].src.h = 52;
+      object_count += 5;
+      for (i = object_count; i < object_count+4; ++i) {
+        world_dock_objects[i].data.color = DARK_EBONY;
+        world_dock_objects[i].src.x = 54 - ((i-object_count) * 16);
+        world_dock_objects[i].src.y = 44;
+        world_dock_objects[i].src.w = 3;
+        world_dock_objects[i].src.h = 52;
       }
-      entity_count += 4;
+      object_count += 4;
     }
+
+    world_dock_entities[0].is_textured = TRUE;
+    world_dock_entities[0].data.texture.id = BITMAP_BOAT;
+    world_dock_entities[0].src.x = 101 * display.scale;
+    world_dock_entities[0].src.y = 73 * display.scale;
+    /* world_dock_entities[0].src.w = 64; */
+    /* world_dock_entities[0].src.h = 64; */
+    world_dock_entities[0].clip.x = 0;
+    world_dock_entities[0].clip.y = 0;
+    world_dock_entities[0].clip.w = 47 * display.scale;
+    world_dock_entities[0].clip.h = 46 * display.scale;
   }
 
   {
     i32 i;
-    for (i = 0; i < WORLD_GUERNICA_ENTITIES; ++i) {
-      world_guernica_entities[i].is_textured = TRUE;
-      world_guernica_entities[i].data.texture.id = BITMAP_GUERNICA;
+    for (i = 0; i < WORLD_GUERNICA_OBJECTS; ++i) {
+      world_guernica_objects[i].is_textured = TRUE;
+      world_guernica_objects[i].data.texture.id = BITMAP_GUERNICA;
     }
 
-    world_guernica_entities[0].src.x = 0;   /* entity start position x */
-    world_guernica_entities[0].src.y = 0;   /* entity start position y */
-    world_guernica_entities[0].src.w = 128; /* texture width */
-    world_guernica_entities[0].src.h = 128; /* texture height */
-    world_guernica_entities[0].clip.x = 0;  /* clip texture x position */
-    world_guernica_entities[0].clip.y = 0;  /* clip texture y position */
-    world_guernica_entities[0].clip.w = 128;/* clip width */
-    world_guernica_entities[0].clip.h = 88; /* clip height */
+    world_guernica_objects[0].src.x = 0;   /* object start position x */
+    world_guernica_objects[0].src.y = 0;   /* object start position y */
+    /* world_guernica_objects[0].src.w = 128; /1* texture width *1/ */
+    /* world_guernica_objects[0].src.h = 128; /1* texture height *1/ */
+    world_guernica_objects[0].clip.x = 0;  /* clip texture x position */
+    world_guernica_objects[0].clip.y = 0;  /* clip texture y position */
+    world_guernica_objects[0].clip.w = 128;/* clip width */
+    world_guernica_objects[0].clip.h = 88; /* clip height */
 
-    world_guernica_entities[1].src.x = 128;
-    world_guernica_entities[1].src.y = 8;
-    world_guernica_entities[1].src.w = 128;
-    world_guernica_entities[1].src.h = 128;
-    world_guernica_entities[1].clip.x = 0;
-    world_guernica_entities[1].clip.y = 88;
-    world_guernica_entities[1].clip.w = 32;
-    world_guernica_entities[1].clip.h = 40;
+    world_guernica_objects[1].src.x = 128;
+    world_guernica_objects[1].src.y = 8;
+    /* world_guernica_objects[1].src.w = 128; */
+    /* world_guernica_objects[1].src.h = 128; */
+    world_guernica_objects[1].clip.x = 0;
+    world_guernica_objects[1].clip.y = 88;
+    world_guernica_objects[1].clip.w = 32;
+    world_guernica_objects[1].clip.h = 40;
 
-    world_guernica_entities[2].src.x = 128;
-    world_guernica_entities[2].src.y = 48;
-    world_guernica_entities[2].src.w = 128;
-    world_guernica_entities[2].src.h = 128;
-    world_guernica_entities[2].clip.x = 32;
-    world_guernica_entities[2].clip.y = 88;
-    world_guernica_entities[2].clip.w = 32;
-    world_guernica_entities[2].clip.h = 40;
+    world_guernica_objects[2].src.x = 128;
+    world_guernica_objects[2].src.y = 48;
+    /* world_guernica_objects[2].src.w = 128; */
+    /* world_guernica_objects[2].src.h = 128; */
+    world_guernica_objects[2].clip.x = 32;
+    world_guernica_objects[2].clip.y = 88;
+    world_guernica_objects[2].clip.w = 32;
+    world_guernica_objects[2].clip.h = 40;
+  }
+
+  {
+    local_persist struct line dragon_path;
+    world_boss_entities[0].is_textured = TRUE;
+    world_boss_entities[0].data.texture.id = BITMAP_INTERACTABLES;
+    world_boss_entities[0].src.x = 46 * display.scale;
+    world_boss_entities[0].src.y = 56 * display.scale;
+    /* world_boss_entities[0].src.w = 32; */
+    /* world_boss_entities[0].src.h = 32; */
+    world_boss_entities[0].clip.x = 0;
+    world_boss_entities[0].clip.y = 16 * display.scale;
+    world_boss_entities[0].clip.w = 16 * display.scale;
+    world_boss_entities[0].clip.h = 16 * display.scale;
+
+    world_boss_entities[1].is_textured = TRUE;
+    world_boss_entities[1].data.texture.id = BITMAP_DRAGON;
+    world_boss_entities[1].x = 110 * display.scale;
+    world_boss_entities[1].y = 27 * display.scale;
+    world_boss_entities[1].move_speed = -8.f * display.scale;
+    world_boss_entities[1].src.x = (i32)world_boss_entities[1].x;
+    world_boss_entities[1].src.y = (i32)world_boss_entities[1].y;
+    /* world_boss_entities[1].src.w = 64; */
+    /* world_boss_entities[1].src.h = 64; */
+    world_boss_entities[1].clip.x = 0;
+    world_boss_entities[1].clip.y = 0;
+    world_boss_entities[1].clip.w = 48 * display.scale;
+    world_boss_entities[1].clip.h = 48 * display.scale;
+
+    dragon_path.p1 = (world_boss_entities[1].src.x - (2 * display.scale));
+    dragon_path.p2 = dragon_path.p1;
+    dragon_path.p2 += world_boss_entities[1].clip.w + (3 * display.scale);
+
+    world_boss_entities[1].action_data = (void*)&dragon_path;
+    world_boss_entities[1].action = &horizontal_bounds_movement;
   }
 
   /* construct the maps */
   worlds[WORLD_START].bg_col = AO;
-  worlds[WORLD_START].entities = world_start_entities;
-  worlds[WORLD_START].entity_count = WORLD_START_ENTITIES;
+  worlds[WORLD_START].objects = world_start_objects;
+  worlds[WORLD_START].object_count = WORLD_START_OBJECTS;
+  worlds[WORLD_START].entities = NULL;
+  worlds[WORLD_START].entity_count = 0;
   worlds[WORLD_HORSEMAN].bg_col = BRITISH_RACING_GREEN;
-  worlds[WORLD_HORSEMAN].entities = world_horseman_entities;
-  worlds[WORLD_HORSEMAN].entity_count = WORLD_HORSEMAN_ENTITIES;
+  worlds[WORLD_HORSEMAN].objects = world_horseman_objects;
+  worlds[WORLD_HORSEMAN].object_count = WORLD_HORSEMAN_OBJECTS;
+  worlds[WORLD_HORSEMAN].entities = NULL;
+  worlds[WORLD_HORSEMAN].entity_count = 0;
   worlds[WORLD_GUERNICA].bg_col = BLACK;
-  worlds[WORLD_GUERNICA].entities = world_guernica_entities;
-  worlds[WORLD_GUERNICA].entity_count = WORLD_GUERNICA_ENTITIES;
+  worlds[WORLD_GUERNICA].objects = world_guernica_objects;
+  worlds[WORLD_GUERNICA].object_count = WORLD_GUERNICA_OBJECTS;
+  worlds[WORLD_GUERNICA].entities = NULL;
+  worlds[WORLD_GUERNICA].entity_count = 0;
   worlds[WORLD_DOCK].bg_col = OCEAN;
+  worlds[WORLD_DOCK].objects = world_dock_objects;
+  worlds[WORLD_DOCK].object_count = WORLD_DOCK_OBJECTS;
   worlds[WORLD_DOCK].entities = world_dock_entities;
   worlds[WORLD_DOCK].entity_count = WORLD_DOCK_ENTITIES;
-  worlds[WORLD_BOSS].bg_col = CRIMSON_RED;
-  worlds[WORLD_BOSS].entities = NULL;
-  worlds[WORLD_BOSS].entity_count = 0;
+  worlds[WORLD_BOSS].bg_col = REDWOOD;
+  worlds[WORLD_BOSS].objects = NULL;
+  worlds[WORLD_BOSS].object_count = 0;
+  worlds[WORLD_BOSS].entities = world_boss_entities;
+  worlds[WORLD_BOSS].entity_count = WORLD_BOSS_ENTITIES;
   worlds[WORLD_END].bg_col = BRITISH_RACING_GREEN;
+  worlds[WORLD_END].objects = NULL;
+  worlds[WORLD_END].object_count = 0;
   worlds[WORLD_END].entities = NULL;
   worlds[WORLD_END].entity_count = 0;
 
@@ -351,13 +446,13 @@ main(int argc, char** argv) {
     SDL_Event event;
     struct entity chimmy;
     struct FontDefinition fd;
-    char str[10];
+    char str[20];
     u8 world_index = WORLD_START;
     r32 vx = 0.f, vy = 0.f;
-    u32 move_speed = 40.f * display.scale;
     u32 bg_col = worlds[world_index].bg_col;
     u32 frame_count = 0;
-    local_persist u32 fps[10];
+    local_persist r64 fps[10];
+    local_persist r64 msperframe;
     u32 fps_timer = SDL_GetTicks();
     u32 update_timer = SDL_GetTicks();
     u32 NOW = 0, LAST = 0;
@@ -392,6 +487,7 @@ main(int argc, char** argv) {
     chimmy.src.h = texture[BITMAP_CHIMMY]->h;
     chimmy.src.x = (display.w / 4);
     chimmy.src.y = (display.h / 2) - (chimmy.clip.h / 2);
+    chimmy.move_speed = 40.f * display.scale;
 
     chimmy.x = chimmy.src.x;
     chimmy.y = chimmy.src.y;
@@ -407,10 +503,10 @@ main(int argc, char** argv) {
           case SDL_KEYDOWN: {
             switch (event.key.keysym.sym) {
               case SDLK_ESCAPE: { goto defer; }break;
-              case SDLK_w: { vy -= move_speed; }break;
-              case SDLK_s: { vy += move_speed; }break;
-              case SDLK_a: { vx -= move_speed; }break;
-              case SDLK_d: { vx += move_speed; }break;
+              case SDLK_w: { vy -= chimmy.move_speed; }break;
+              case SDLK_s: { vy += chimmy.move_speed; }break;
+              case SDLK_a: { vx -= chimmy.move_speed; }break;
+              case SDLK_d: { vx += chimmy.move_speed; }break;
               case SDLK_q: {
                 if (world_index == WORLD_START) { world_index = WORLD_END; }
                 else { world_index--; }
@@ -425,10 +521,10 @@ main(int argc, char** argv) {
           }break;
           case SDL_KEYUP: {
             switch (event.key.keysym.sym) {
-              case SDLK_w: { vy += move_speed; }break;
-              case SDLK_s: { vy -= move_speed; }break;
-              case SDLK_a: { vx += move_speed; }break;
-              case SDLK_d: { vx -= move_speed; }break;
+              case SDLK_w: { vy += chimmy.move_speed; }break;
+              case SDLK_s: { vy -= chimmy.move_speed; }break;
+              case SDLK_a: { vx += chimmy.move_speed; }break;
+              case SDLK_d: { vx -= chimmy.move_speed; }break;
               InvalidDefaultCase;
             }
           }break;
@@ -436,6 +532,15 @@ main(int argc, char** argv) {
       }
 
       entity_move(&chimmy, &display, vx, vy, dt);
+      {
+        i32 index;
+        struct entity* iter = worlds[world_index].entities;
+        if (iter) {
+          for (index = 0; index < worlds[world_index].entity_count; ++index, ++iter) {
+            if (iter->action) { iter->action(iter, dt); }
+          }
+        }
+      }
 
       /*
        * NOTE: if you clear the backbuffer instead of the screen, while in interlaced scale mode
@@ -446,9 +551,9 @@ main(int argc, char** argv) {
 
       {
         i32 index;
-        struct renderable* iter = worlds[world_index].entities;
+        struct renderable* iter = worlds[world_index].objects;
         if (iter) {
-          for (index = 0; index < worlds[world_index].entity_count; ++index, ++iter) {
+          for (index = 0; index < worlds[world_index].object_count; ++index, ++iter) {
             if (iter->is_textured)
               SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, display.backbuffer, &iter->src);
             else
@@ -463,12 +568,25 @@ main(int argc, char** argv) {
         SDL_BlitSurface(display.backbuffer, NULL, display.screen, NULL);
       }
 
+      {
+        i32 index;
+        struct entity* iter = worlds[world_index].entities;
+        if (iter) {
+          for (index = 0; index < worlds[world_index].entity_count; ++index, ++iter) {
+            if (iter->is_textured)
+              SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, display.screen, &iter->src);
+            else
+              SDL_FillRect(display.backbuffer, &iter->src, fill_color(display.screen->format, iter->data.color));
+          }
+        }
+      }
+
       SDL_BlitSurface(texture[chimmy.data.texture.id],
                       entity_calculate_crop_bounds(&chimmy), display.screen, &chimmy.src);
 
-      sprintf(str, "FPS:%i", average(fps, 10));
+      /* sprintf(str, "%.fF/S", fps[0]); */
+      sprintf(str, "%.05fMS/F", msperframe);
       SDL_DrawMonospaceText(&fd, display.screen, str, 2, 2);
-
       SDL_Flip(display.screen);
 
       frame_count++;
@@ -476,10 +594,12 @@ main(int argc, char** argv) {
       /* update every second? */
       if (SDL_GetTicks() - update_timer > 1000) {
         i32 i;
+        u64 counter_elapsed;
         for (i = 0; i < 9; ++i) { fps[i+1] = fps[i]; }
-        fps[0] = frame_count / ((SDL_GetTicks() - fps_timer) / 1000);
+        counter_elapsed = SDL_GetTicks() - fps_timer;
+        fps[0] = (r64)frame_count / (r64)(counter_elapsed / 1000.f);
+        msperframe = (r64)(counter_elapsed) / (r64)frame_count;
         update_timer = SDL_GetTicks();
-        /* printf("FPS: %i\n", fps[0]); */
       }
 
       SDL_Delay(1); /* We should properly cap the FPS */

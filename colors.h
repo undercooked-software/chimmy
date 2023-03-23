@@ -35,8 +35,13 @@ enum {
 struct rgb {
   u8 r,g,b;
   u8 unused;
-}; /* 4byte */
+};
 
-internal struct rgb rgb_unpack(u32);
+struct rgba {
+  u8 r,g,b,a;
+};
+
+internal struct rgb  rgb_unpack(u32);
+internal struct rgba rgba_unpack(u32);
 
 #endif /* COLORS_H */

@@ -6,12 +6,15 @@ OPEN2X_DIR=./build/wiz
 BIN=game
 OPEN2X_BIN=${BIN}.gpe
 
-# includes and libs
+# utilities
 OPEN2X_SDL=/opt/arm-openwiz-linux-gnu/bin/sdl-config
+
+# includes and libs
+EXT=-Iext
 
 # flags
 #CFLAGS=-g -ansi -pedantic -Wall
-CFLAGS=-ansi -pedantic -Wall -Wno-deprecated-declarations -Os
+CFLAGS=-ansi -pedantic -Wall -Wno-unused-function -Os
 
 # compilers and linkers
 CC=cc

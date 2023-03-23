@@ -33,59 +33,27 @@ bmp_trans_load(const char* filename, u32 color, enum bmp_load_type loader) {
 }
 
 internal SDL_Surface*
-bmp_scale(SDL_Surface* texture, u32 color, u32 scale) {
-  SDL_Surface* scaled_texture;
+SDL_ScaleSurface(SDL_Surface* src, u32 color, u32 scale) {
+  SDL_Surface* dst;
   {
     u32 w, h;
-    SDL_PixelFormat* fmt = texture->format;
-    w = texture->w * scale;
-    h = texture->h * scale;
-    scaled_texture =
-      SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, fmt->BitsPerPixel,
-                           fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
-    surface_progressive_scale(texture, scaled_texture, scale);
+    SDL_PixelFormat* fmt = src->format;
+    w = src->w * scale;
+    h = src->h * scale;
+
+    dst = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, fmt->BitsPerPixel,
+                               fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
+    surface_progressive_scale(src, dst, scale);
     {
       struct rgb unpacked = rgb_unpack(color);
-      u32 key = SDL_MapRGB(scaled_texture->format, unpacked.r, unpacked.g, unpacked.b);
-      SDL_SetColorKey(scaled_texture, SDL_SRCCOLORKEY, key);
+      u32 key = SDL_MapRGB(dst->format, unpacked.r, unpacked.g, unpacked.b);
+      SDL_SetColorKey(dst, SDL_SRCCOLORKEY, key);
     }
   }
 
-  SDL_FreeSurface(texture);
-  return scaled_texture;
+  SDL_FreeSurface(src);
+  return dst;
 }
-
-/* internal void */
-/* surface_interlaced_scale(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scale) { */
-/*   i32 x, y, i; */
-/*   PIXEL* screen_pixels      = (PIXEL*)screen->pixels; */
-/*   PIXEL* backbuffer_pixels  = (PIXEL*)backbuffer->pixels; */
-/*   for (y = 0; y < backbuffer->h; ++y) { */
-/*     for (x = 0; x < backbuffer->w; ++x) { */
-/*       for (i = 0; i < scale; ++i) { */
-/*         screen_pixels[((y * scale * screen->w) + (x * scale)) + i] = */
-/*            backbuffer_pixels[(y * backbuffer->w) + x]; */
-/*       } */
-/*     } */
-/*   } */
-/* } */
-
-/*internal void */
-/*surface_interlaced_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scale) { */
-/*  /1* */
-/*   * Counterpillow's clean implementation, modified for interlaced scale */
-/*   * Currently performs better than mine based on our current FPS margins! */
-/*   *1/ */
-/*  i32 x, y; */
-/*  PIXEL* screen_pixels      = (PIXEL*)screen->pixels; */
-/*  PIXEL* backbuffer_pixels  = (PIXEL*)backbuffer->pixels; */
-/*  for (y = 0; y < screen->h; y+=2) { */
-/*    for (x = 0; x < screen->w; x++) { */
-/*      screen_pixels[y * screen->w + x] = */
-/*        backbuffer_pixels[y / scale * screen->w / scale + x / scale]; */
-/*    } */
-/*  } */
-/*} */
 
 internal void
 surface_progressive_scale(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scale) {
@@ -120,19 +88,19 @@ surface_progressive_scale(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scal
   SDL_FreeSurface(line);
 }
 
-/*internal void */
-/*surface_progressive_scale2(SDL_Surface* backbuffer, SDL_Surface* screen, u32 scale) { */
-/*  /1* */
-/*   * Counterpillow's clean implementation */
-/*   * I like the way it's done, but it seems to be less performant for some reason? */
-/*   *1/ */
-/*  i32 x, y; */
-/*  PIXEL* screen_pixels      = (PIXEL*)screen->pixels; */
-/*  PIXEL* backbuffer_pixels  = (PIXEL*)backbuffer->pixels; */
-/*  for (y = 0; y < screen->h; y++) { */
-/*    for (x = 0; x < screen->w; x++) { */
-/*      screen_pixels[y * screen->w + x] = */
-/*        backbuffer_pixels[y / scale * screen->w / scale + x / scale]; */
-/*    } */
-/*  } */
-/*} */
+internal void
+surface_progressive_scale2(SDL_Surface* src, SDL_Surface* dst, u32 scale) {
+  /*
+   * Counterpillow's clean implementation
+   * I like the way it's done, but it seems to be less performant for some reason?
+   */
+  i32 x, y;
+  PIXEL* src_pixels = (PIXEL*)src->pixels;
+  PIXEL* dst_pixels = (PIXEL*)dst->pixels;
+  for (y = 0; y < dst->h; y++) {
+    for (x = 0; x < dst->w; x++) {
+      dst_pixels[y * dst->w + x] =
+        src_pixels[y / scale * dst->w / scale + x / scale];
+    }
+  }
+}

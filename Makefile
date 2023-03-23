@@ -5,12 +5,12 @@ all: x86_64 wiz
 x86_64: main.c
 	@mkdir -p ${LINUX_DIR}
 	@echo '***********  BUILDING x86_64  ***********'
-	${CC} ${CFLAGS} `sdl-config --cflags` ${MOLD} -DTARGET_X86_64 $< -o ${LINUX_DIR}/${BIN} `sdl-config --libs`
+	${CC} ${CFLAGS} `sdl-config --cflags` ${EXT} ${MOLD} -DTARGET_X86_64 $< -o ${LINUX_DIR}/${BIN} `sdl-config --libs`
 
 wiz: wiz_main.c
 	@mkdir -p ${OPEN2X_DIR}
 	@echo '*********** BUILDING GP2X-WIZ ***********'
-	${OPEN2X} ${CFLAGS} `${OPEN2X_SDL} --cflags` -DTARGET_WIZ $< -o ${OPEN2X_DIR}/${OPEN2X_BIN} `${OPEN2X_SDL} --libs`
+	${OPEN2X} ${CFLAGS} `${OPEN2X_SDL} --cflags` ${EXT} -DTARGET_WIZ $< -o ${OPEN2X_DIR}/${OPEN2X_BIN} `${OPEN2X_SDL} --libs`
 
 clean:
 	rm -f ${LINUX_DIR}/${BIN}

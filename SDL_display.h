@@ -1,14 +1,14 @@
-#ifndef DISPLAY_H
-#define DISPLAY_H
+#ifndef SDL_DISPLAY_H
+#define SDL_DISPLAY_H
 
 #include <SDL_video.h>
 #include "base_types.h"
 
-struct display {
+struct SDL_Display {
   SDL_Surface* screen;
   SDL_Surface* backbuffer;
   u16 w, h;
   u8 scale;
 };
 
-#endif /* DISPLAY_H */
+#endif /* SDL_DISPLAY_H */

@@ -2,3 +2,5 @@
 /usr/local/include/SDL
 -I
 /opt/arm-openwiz-linux-gnu/include/SDL
+-I
+./ext
