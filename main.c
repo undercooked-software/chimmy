@@ -24,7 +24,7 @@ enum {
   BITMAP_GUERNICA,
   BITMAP_KNIGHT,
   BITMAP_HORSEMAN,
-  BITMAP_WIP_COWBOY,
+  BITMAP_COWBOY,
   BITMAP_DRAGON,
   BITMAP_COUNT
 };
@@ -75,13 +75,15 @@ struct entity {
     struct tex_data texture;
     u32 color;
   } data;
-  r32 x, y;
-  i32 move_speed;
   SDL_Rect src;
   SDL_Rect clip;
 
-  void* action_data;
+  r32 x, y;
+  r32 vx, vy;
+  i32 move_speed;
+
   void (*action)(struct entity*, r64);
+  void* action_data;
 };
 
 struct line {
@@ -116,12 +118,12 @@ entity_is_in_bounds(struct entity* e, struct SDL_Display* display) {
 }
 
 void
-entity_move(struct entity* e, struct SDL_Display* display, r32 vx, r32 vy, r64 dt) {
+entity_move(struct entity* e, struct SDL_Display* display, r64 dt) {
   i32 collision_side = COLLISION_SIDE_NONE;
 
-  if (vx == 0 && vy == 0) return;
-  e->x += vx * dt;
-  e->y += vy * dt;
+  if (e->vx == 0 && e->vy == 0) return;
+  e->x += e->vx * e->move_speed * dt;
+  e->y += e->vy * e->move_speed * dt;
 
   collision_side = entity_is_in_bounds(e, display);
   switch (collision_side) {
@@ -156,20 +158,40 @@ entity_calculate_crop_bounds(struct entity* entity) {
   return &crop_rect;
 }
 
+/* additional worlds with lack of placement:
+ * - basketball court [backdrop, basketball, road, 2 basketball hoops]
+ * - stone head area (after underwater?) [6 stone heads, 1 apple]
+ * - 4 blocks (after split road?) [4 squares, red yellow white purple]
+ * - well (after 4 blocks?)
+ * - apple grove? [5 apple trees, 1 apple]
+ * - castle [2 knights going up and down, 1 castle, 1 banana]
+ * - cowboy [2 cowboys shooting lemons, 1 saloon]
+ * - desert road (after cowboy)[8 cacti, 1 snake, road]
+ * - egypt (after desert road)[3 pyramids, 1 anubis]
+ *
+ * - chimmy dead [big chimmy dead text, tombstone]
+ */
+
 enum {
-  WORLD_START,
-  WORLD_HORSEMAN,
-  WORLD_GUERNICA,
-  WORLD_DOCK,
-  WORLD_BOSS,
-  WORLD_END,
+  WORLD_START,      /* needs 6 evergreen? trees, can loop back to end */
+  WORLD_BARN,       /* needs barn, and 2 cows */
+  WORLD_HORSEMAN,   /* horseman needs animation */
+  WORLD_ROAD_SPLIT, /* needs split road, 3 holes */
+  WORLD_GUERNICA,   /* finished */
+  WORLD_DOCK,       /* needs apple and shark */
+  WORLD_UNDERWATER, /* swimming area, with shark */
+  WORLD_VOLCANO,    /* needs volcano, 4 holes, 1 apple and 1 shark */
+  WORLD_BOSS,       /* needs octagon to be pushable */
+  WORLD_END,        /* needs giant text, requires control of chimmy to be removed */
   WORLD_COUNT
 };
 
 #define WORLD_START_OBJECTS (1)
 global struct renderable world_start_objects[WORLD_START_OBJECTS];
 #define WORLD_HORSEMAN_OBJECTS (1)
+#define WORLD_HORSEMAN_ENTITIES (1)
 global struct renderable world_horseman_objects[WORLD_HORSEMAN_OBJECTS];
+global struct entity world_horseman_entities[WORLD_HORSEMAN_ENTITIES];
 #define WORLD_GUERNICA_OBJECTS (3)
 global struct renderable world_guernica_objects[WORLD_GUERNICA_OBJECTS];
 #define WORLD_DOCK_OBJECTS (10)
@@ -208,16 +230,45 @@ void
 horizontal_bounds_movement(struct entity* e, r64 dt) {
   struct line* line = (struct line*)e->action_data;
 
-  e->x += e->move_speed * dt;
+  e->x += e->vx * e->move_speed * dt;
   if (e->x < line->p1) {
-    e->move_speed *= -1;
+    e->vx *= -1;
     e->x = line->p1;
   }
   else if (e->x + e->clip.w > line->p2) {
-    e->move_speed *= -1;
+    e->vx *= -1;
     e->x = line->p2 - e->clip.w;
   }
   e->src.x = e->x;
+}
+
+void
+zigzag_bounds_movement(struct entity* e, r64 dt) {
+  SDL_Rect* rect = (SDL_Rect*)e->action_data;
+
+  e->x += e->vx * e->move_speed * dt;
+  e->y += e->vy * e->move_speed * dt;
+
+  if (e->y < rect->y) {
+    e->vy *= -1;
+    e->y = rect->y;
+  } else if ((e->y+e->clip.h) > rect->h) {
+    e->vy *= -1;
+    e->y = rect->h - e->clip.h;
+  }
+
+  if (e->x < rect->x) {
+    e->vx *= -1;
+    e->x = rect->x;
+    e->data.texture.anim = 1; /* move this out of here */
+  } else if ((e->x+e->clip.w) > rect->w) {
+    e->vx *= -1;
+    e->x = rect->w - e->clip.w;
+    e->data.texture.anim = 0; /* move this out of here */
+  }
+
+  e->src.x = e->x;
+  e->src.y = e->y;
 }
 
 int
@@ -271,7 +322,7 @@ main(int argc, char** argv) {
   texture[BITMAP_GUERNICA]      = SDL_LoadQOI("data/image/guernica.qoi");
   texture[BITMAP_KNIGHT]        = SDL_LoadQOI("data/image/knight.qoi");
   texture[BITMAP_HORSEMAN]      = SDL_LoadQOI("data/image/horseman.qoi");
-  texture[BITMAP_WIP_COWBOY]    = SDL_LoadQOI("data/image/cowboy.qoi");
+  texture[BITMAP_COWBOY]        = SDL_LoadQOI("data/image/cowboy.qoi");
   texture[BITMAP_DRAGON]        = SDL_LoadQOI("data/image/dragon.qoi");
 
   if (display.scale > 1) {
@@ -293,11 +344,38 @@ main(int argc, char** argv) {
   }
 
   {
+    local_persist SDL_Rect collision_rect;
     world_horseman_objects[0].data.color = DARK_EBONY;
     world_horseman_objects[0].src.x = 0;
     world_horseman_objects[0].src.y = 44;
     world_horseman_objects[0].src.w = BACKBUFFER_WIDTH;
     world_horseman_objects[0].src.h = 32;
+
+    world_horseman_entities[0].is_textured = TRUE;
+    world_horseman_entities[0].data.texture.id = BITMAP_HORSEMAN;
+    world_horseman_entities[0].data.texture.anim = 0;
+    world_horseman_entities[0].x = 120 * display.scale;
+    world_horseman_entities[0].y = 22 * display.scale;
+    world_horseman_entities[0].vx = -1.f;
+    world_horseman_entities[0].vy = -0.69f;
+    world_horseman_entities[0].move_speed = 32.f * display.scale;
+    world_horseman_entities[0].src.x = (i32)world_horseman_entities[0].x;
+    world_horseman_entities[0].src.y = (i32)world_horseman_entities[0].y;
+    /* world_horseman_entities[0].src.w = 64; */
+    /* world_horseman_entities[0].src.h = 64; */
+    world_horseman_entities[0].clip.x = 0;
+    world_horseman_entities[0].clip.y = 0;
+    world_horseman_entities[0].clip.w = 32 * display.scale;
+    world_horseman_entities[0].clip.h = 32 * display.scale;
+
+    collision_rect.x = 6 * display.scale;
+    collision_rect.y = 24 * display.scale;
+    collision_rect.w = (world_horseman_entities[0].clip.w * 5) -  collision_rect.x;
+    collision_rect.h = (44+32) * display.scale;
+
+    world_horseman_entities[0].action_data = (void*)&collision_rect;
+    world_horseman_entities[0].action = &zigzag_bounds_movement;
+    /* world_horseman_entities[0].action = NULL; */
   }
 
   {
@@ -392,6 +470,7 @@ main(int argc, char** argv) {
     world_boss_entities[1].data.texture.id = BITMAP_DRAGON;
     world_boss_entities[1].x = 110 * display.scale;
     world_boss_entities[1].y = 27 * display.scale;
+    world_boss_entities[1].vx = -1.f;
     world_boss_entities[1].move_speed = -8.f * display.scale;
     world_boss_entities[1].src.x = (i32)world_boss_entities[1].x;
     world_boss_entities[1].src.y = (i32)world_boss_entities[1].y;
@@ -419,8 +498,8 @@ main(int argc, char** argv) {
   worlds[WORLD_HORSEMAN].bg_col = BRITISH_RACING_GREEN;
   worlds[WORLD_HORSEMAN].objects = world_horseman_objects;
   worlds[WORLD_HORSEMAN].object_count = WORLD_HORSEMAN_OBJECTS;
-  worlds[WORLD_HORSEMAN].entities = NULL;
-  worlds[WORLD_HORSEMAN].entity_count = 0;
+  worlds[WORLD_HORSEMAN].entities = world_horseman_entities;
+  worlds[WORLD_HORSEMAN].entity_count = WORLD_HORSEMAN_ENTITIES;
   worlds[WORLD_GUERNICA].bg_col = BLACK;
   worlds[WORLD_GUERNICA].objects = world_guernica_objects;
   worlds[WORLD_GUERNICA].object_count = WORLD_GUERNICA_OBJECTS;
@@ -448,7 +527,6 @@ main(int argc, char** argv) {
     struct FontDefinition fd;
     char str[20];
     u8 world_index = WORLD_START;
-    r32 vx = 0.f, vy = 0.f;
     u32 bg_col = worlds[world_index].bg_col;
     u32 frame_count = 0;
     local_persist r64 fps[10];
@@ -480,7 +558,7 @@ main(int argc, char** argv) {
 
     chimmy.is_textured = TRUE;
     chimmy.data.texture.id = BITMAP_CHIMMY;
-    chimmy.data.texture.anim = 0;
+    chimmy.data.texture.anim = CHIMMY_ANIM_WIN;
     chimmy.clip.x = chimmy.clip.y = 0;
     chimmy.clip.w = chimmy.clip.h = 16 * display.scale;
     chimmy.src.w = texture[BITMAP_CHIMMY]->w;
@@ -488,6 +566,7 @@ main(int argc, char** argv) {
     chimmy.src.x = (display.w / 4);
     chimmy.src.y = (display.h / 2) - (chimmy.clip.h / 2);
     chimmy.move_speed = 40.f * display.scale;
+    chimmy.vx = chimmy.vy = 0.f;
 
     chimmy.x = chimmy.src.x;
     chimmy.y = chimmy.src.y;
@@ -503,10 +582,10 @@ main(int argc, char** argv) {
           case SDL_KEYDOWN: {
             switch (event.key.keysym.sym) {
               case SDLK_ESCAPE: { goto defer; }break;
-              case SDLK_w: { vy -= chimmy.move_speed; }break;
-              case SDLK_s: { vy += chimmy.move_speed; }break;
-              case SDLK_a: { vx -= chimmy.move_speed; }break;
-              case SDLK_d: { vx += chimmy.move_speed; }break;
+              case SDLK_w: { chimmy.vy -= 1.f; }break;
+              case SDLK_s: { chimmy.vy += 1.f; }break;
+              case SDLK_a: { chimmy.vx -= 1.f; }break;
+              case SDLK_d: { chimmy.vx += 1.f; }break;
               case SDLK_q: {
                 if (world_index == WORLD_START) { world_index = WORLD_END; }
                 else { world_index--; }
@@ -521,17 +600,17 @@ main(int argc, char** argv) {
           }break;
           case SDL_KEYUP: {
             switch (event.key.keysym.sym) {
-              case SDLK_w: { vy += chimmy.move_speed; }break;
-              case SDLK_s: { vy -= chimmy.move_speed; }break;
-              case SDLK_a: { vx += chimmy.move_speed; }break;
-              case SDLK_d: { vx -= chimmy.move_speed; }break;
+              case SDLK_w: { chimmy.vy += 1.f; }break;
+              case SDLK_s: { chimmy.vy -= 1.f; }break;
+              case SDLK_a: { chimmy.vx += 1.f; }break;
+              case SDLK_d: { chimmy.vx -= 1.f; }break;
               InvalidDefaultCase;
             }
           }break;
         }
       }
 
-      entity_move(&chimmy, &display, vx, vy, dt);
+      entity_move(&chimmy, &display, dt);
       {
         i32 index;
         struct entity* iter = worlds[world_index].entities;
@@ -574,7 +653,7 @@ main(int argc, char** argv) {
         if (iter) {
           for (index = 0; index < worlds[world_index].entity_count; ++index, ++iter) {
             if (iter->is_textured)
-              SDL_BlitSurface(texture[iter->data.texture.id], &iter->clip, display.screen, &iter->src);
+              SDL_BlitSurface(texture[iter->data.texture.id], entity_calculate_crop_bounds(iter), display.screen, &iter->src);
             else
               SDL_FillRect(display.backbuffer, &iter->src, fill_color(display.screen->format, iter->data.color));
           }
