@@ -226,7 +226,7 @@ fill_color(SDL_PixelFormat* fmt, u32 color) {
   return SDL_MapRGB(fmt, unpacked.r, unpacked.g, unpacked.b);
 }
 
-void
+internal void
 horizontal_bounds_movement(struct entity* e, r64 dt) {
   struct line* line = (struct line*)e->action_data;
 
@@ -242,7 +242,23 @@ horizontal_bounds_movement(struct entity* e, r64 dt) {
   e->src.x = e->x;
 }
 
-void
+internal void
+vertical_bounds_movement(struct entity* e, r64 dt) {
+  struct line* line = (struct line*)e->action_data;
+
+  e->y += e->vy * e->move_speed * dt;
+  if (e->y < line->p1) {
+    e->vy *= -1;
+    e->y = line->p1;
+  }
+  else if (e->y + e->clip.h > line->p2) {
+    e->vy *= -1;
+    e->y = line->p2 - e->clip.y;
+  }
+  e->src.y = e->y;
+}
+
+internal void
 zigzag_bounds_movement(struct entity* e, r64 dt) {
   SDL_Rect* rect = (SDL_Rect*)e->action_data;
 
