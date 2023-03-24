@@ -11,7 +11,7 @@
 #include "SDL_display.h"
 
 #include "colors.c"
-#include "surface.c"
+#include "SDL_surface.c"
 #include "SDL_text.c"
 #include "SDL_QOI.c"
 
@@ -276,7 +276,7 @@ main(int argc, char** argv) {
   struct SDL_Display display;
   u32 flags = 0;
 
-  display.scale = 4;
+  display.scale = 2;
   display.w = BACKBUFFER_WIDTH * display.scale;
   display.h = BACKBUFFER_HEIGHT * display.scale;
 
@@ -326,13 +326,19 @@ main(int argc, char** argv) {
   texture[BITMAP_DRAGON]        = SDL_LoadQOI("data/image/dragon.qoi");
 
   if (display.scale > 1) {
-    texture[BITMAP_SMALLFONT]     = SDL_ScaleSurface(texture[BITMAP_SMALLFONT], MAGENTA, display.scale);
-    texture[BITMAP_CHIMMY]        = SDL_ScaleSurface(texture[BITMAP_CHIMMY], MAGENTA, display.scale);
-    texture[BITMAP_INTERACTABLES] = SDL_ScaleSurface(texture[BITMAP_INTERACTABLES], MAGENTA, display.scale);
-    texture[BITMAP_BOAT]          = SDL_ScaleSurface(texture[BITMAP_BOAT], MAGENTA, display.scale);
-    texture[BITMAP_KNIGHT]        = SDL_ScaleSurface(texture[BITMAP_KNIGHT], MAGENTA, display.scale);
-    texture[BITMAP_HORSEMAN]      = SDL_ScaleSurface(texture[BITMAP_HORSEMAN], MAGENTA, display.scale);
-    texture[BITMAP_DRAGON]        = SDL_ScaleSurface(texture[BITMAP_DRAGON], MAGENTA, display.scale);
+    texture[BITMAP_SMALLFONT]     = SDL_ScaleSurface(texture[BITMAP_SMALLFONT], display.scale);
+    texture[BITMAP_CHIMMY]        = SDL_ScaleSurface(texture[BITMAP_CHIMMY], display.scale);
+    texture[BITMAP_INTERACTABLES] = SDL_ScaleSurface(texture[BITMAP_INTERACTABLES], display.scale);
+    texture[BITMAP_BOAT]          = SDL_ScaleSurface(texture[BITMAP_BOAT], display.scale);
+    texture[BITMAP_KNIGHT]        = SDL_ScaleSurface(texture[BITMAP_KNIGHT], display.scale);
+    texture[BITMAP_HORSEMAN]      = SDL_ScaleSurface(texture[BITMAP_HORSEMAN], display.scale);
+    texture[BITMAP_DRAGON]        = SDL_ScaleSurface(texture[BITMAP_DRAGON], display.scale);
+  }
+
+  {
+    size_t i;
+    for (i = 0; i < BITMAP_COUNT; ++i)
+      if (texture[i] != NULL) { SDL_RGBColorKeySurface(texture[i], MAGENTA); }
   }
 
   {
@@ -375,10 +381,10 @@ main(int argc, char** argv) {
 
     world_horseman_entities[0].action_data = (void*)&collision_rect;
     world_horseman_entities[0].action = &zigzag_bounds_movement;
-    /* world_horseman_entities[0].action = NULL; */
   }
 
   {
+    local_persist struct line boat_path;
     local_persist i32 object_count;
     world_dock_objects[0].data.color = SANDWISP;
     world_dock_objects[0].src.x = 0;
@@ -408,14 +414,24 @@ main(int argc, char** argv) {
 
     world_dock_entities[0].is_textured = TRUE;
     world_dock_entities[0].data.texture.id = BITMAP_BOAT;
-    world_dock_entities[0].src.x = 101 * display.scale;
-    world_dock_entities[0].src.y = 73 * display.scale;
+    world_dock_entities[0].x = 101 * display.scale;
+    world_dock_entities[0].y = 73 * display.scale;
+    world_dock_entities[0].vx = -1.f;
+    world_dock_entities[0].move_speed = 5.f * display.scale;
+    world_dock_entities[0].src.x = (i32)world_dock_entities[0].x;
+    world_dock_entities[0].src.y = (i32)world_dock_entities[0].y;
     /* world_dock_entities[0].src.w = 64; */
     /* world_dock_entities[0].src.h = 64; */
     world_dock_entities[0].clip.x = 0;
     world_dock_entities[0].clip.y = 0;
     world_dock_entities[0].clip.w = 47 * display.scale;
     world_dock_entities[0].clip.h = 46 * display.scale;
+
+    boat_path.p1 = world_dock_entities[0].x - (5 * display.scale);
+    boat_path.p2 = world_dock_entities[0].x + world_dock_entities[0].clip.w + (5 * display.scale);;
+
+    world_dock_entities[0].action_data = (void*)&boat_path;
+    world_dock_entities[0].action = &horizontal_bounds_movement;
   }
 
   {
@@ -457,6 +473,7 @@ main(int argc, char** argv) {
     local_persist struct line dragon_path;
     world_boss_entities[0].is_textured = TRUE;
     world_boss_entities[0].data.texture.id = BITMAP_INTERACTABLES;
+    world_boss_entities[0].data.texture.anim = INTERACTABLE_OCTAGON;
     world_boss_entities[0].src.x = 46 * display.scale;
     world_boss_entities[0].src.y = 56 * display.scale;
     /* world_boss_entities[0].src.w = 32; */
@@ -468,10 +485,11 @@ main(int argc, char** argv) {
 
     world_boss_entities[1].is_textured = TRUE;
     world_boss_entities[1].data.texture.id = BITMAP_DRAGON;
+    world_boss_entities[1].data.texture.anim = DRAGON_ANIM_NORMAL;
     world_boss_entities[1].x = 110 * display.scale;
     world_boss_entities[1].y = 27 * display.scale;
     world_boss_entities[1].vx = -1.f;
-    world_boss_entities[1].move_speed = -8.f * display.scale;
+    world_boss_entities[1].move_speed = 8.f * display.scale;
     world_boss_entities[1].src.x = (i32)world_boss_entities[1].x;
     world_boss_entities[1].src.y = (i32)world_boss_entities[1].y;
     /* world_boss_entities[1].src.w = 64; */
@@ -642,7 +660,7 @@ main(int argc, char** argv) {
       }
 
       if (display.scale > 1) {
-        surface_progressive_scale(display.backbuffer, display.screen, display.scale);
+        SDL_ChunkScaleCopySurface(display.backbuffer, display.screen, display.scale);
       } else {
         SDL_BlitSurface(display.backbuffer, NULL, display.screen, NULL);
       }
