@@ -26,7 +26,7 @@ SDL_ChunkScaleCopySurface(SDL_Surface* src, SDL_Surface* dst, u32 scale) {
   {
     i32 x, y, i;
     PIXEL* src_pixels  = (PIXEL*)src->pixels;
-    PIXEL* line_pixels        = (PIXEL*)line->pixels;
+    PIXEL* line_pixels = (PIXEL*)line->pixels;
     for (y = 0; y < src->h; ++y) {
       for (x = 0; x < src->w; ++x) {
         for (i = 0; i < scale; ++i) {
